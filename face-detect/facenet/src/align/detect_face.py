@@ -661,6 +661,7 @@ def generateBoundingBox(imap, reg, scale, t):
     """Use heatmap to generate bounding boxes"""
     stride=2
     cellsize=12
+    # cellsize=5 ##oka
 
     imap = np.transpose(imap)
     dx1 = np.transpose(reg[:,:,0])
