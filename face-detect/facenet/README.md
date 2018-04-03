@@ -1,3 +1,17 @@
+# How to run the code
+1. export python path
+refer to here:
+https://github.com/davidsandberg/facenet/wiki/Classifier-training-of-inception-resnet-v1
+
+2. Run those command
+cd face-detect/facenet/src
+python3 tapway-face.py
+
+then the cropped image will save in face_img folder.
+
+Refer here for more details:
+https://github.com/davidsandberg/facenet
+
 # Face Recognition using Tensorflow [![Build Status][travis-image]][travis]
 
 [travis-image]: http://travis-ci.org/davidsandberg/facenet.svg?branch=master
