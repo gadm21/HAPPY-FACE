@@ -3,7 +3,7 @@
 refer to here:
 https://github.com/davidsandberg/facenet/wiki/Classifier-training-of-inception-resnet-v1
 
-2. Run those command
+2. Run those command:
 cd face-detect/facenet/src
 python3 tapway-face.py
 
