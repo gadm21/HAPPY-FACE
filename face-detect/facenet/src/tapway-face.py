@@ -39,7 +39,7 @@ def saveImage(saveImgPath,cropFace,numFace):
 
 def doRecognizePerson(faceNames,fid):
 	time.sleep(2)
-	faceNames[fid] = "Person "+str(fid)
+	# faceNames[fid] = "Person "+str(fid)
 
 ### create image that min 80*80 pixel for aws rekognition
 def cropFaceAWS(img,bb,crop_factor):
@@ -178,7 +178,10 @@ class FaceDetect:
 				print('New face add to collection')
 				res = aws.index_faces(enc)
 				print('Face ID:',res['FaceRecords'][0]['Face']['FaceId'])
+				self.tracker.faceNames[fid] = "New Face ID: "+res['FaceRecords'][0]['Face']['FaceId']
 			else:
+				# add aws id
+				self.tracker.faceNames[fid] = "Match ID: "+result['FaceMatches'][0]['Face']['FaceId']
 				print('Match Face ID {}'.format(result['FaceMatches'][0]['Face']['FaceId']))
 
 		except Exception as e:
@@ -205,8 +208,16 @@ class FaceDetect:
 									rectangleColor ,2)
 
 			if fid in self.tracker.faceNames.keys():
+				# cv2.putText(imgDisplay, self.tracker.faceNames[fid] , 
+				# 			(int(t_x + t_w/2), int(t_y)), 
+				# 			cv2.FONT_HERSHEY_SIMPLEX,
+				# 			0.5, (255, 255, 255), 2)
+				text = self.tracker.faceNames[fid]
+				textsize = cv2.getTextSize(text,cv2.FONT_HERSHEY_SIMPLEX,0.5,2)[0]
+				textX = (textsize[0])/2
+				# textY = (t_w+textsize[1])/2
 				cv2.putText(imgDisplay, self.tracker.faceNames[fid] , 
-							(int(t_x + t_w/2), int(t_y)), 
+							(int(t_x+t_w/2-textX), int(t_y)), 
 							cv2.FONT_HERSHEY_SIMPLEX,
 							0.5, (255, 255, 255), 2)
 			else:
