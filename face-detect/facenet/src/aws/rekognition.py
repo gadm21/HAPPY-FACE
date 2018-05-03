@@ -46,6 +46,9 @@ if __name__ == '__main__':
 	response = list_faces()
 	print('Face ID list:')
 	for face in response['Faces']:
-		print(face['FaceId'])	
-	# response = delete_faces(['440500fe-b426-4f63-813d-35b8210cb0ab','e74259ad-a68f-4920-afeb-2549e9d11402'])
-	# print(response)
+		print(face['FaceId'])
+		
+	# delete all face id
+	# for face in response['Faces']:
+	# 	response = delete_faces([face['FaceId']])
+	# 	print(response)
