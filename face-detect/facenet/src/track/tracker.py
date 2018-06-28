@@ -10,8 +10,8 @@ class Tracker:
 	def createTrack(self,imgDisplay,x,y,w,h,currentFaceID):
 		print('Creating new tracker'+str(currentFaceID))
 		tracker = dlib.correlation_tracker()
-		tracker.start_track(imgDisplay,dlib.rectangle(x-10,y-20,x+w+10,y+h+20))
-		# tracker.start_track(imgDisplay,dlib.rectangle(x,y,x+w,y+h))
+		#tracker.start_track(imgDisplay,dlib.rectangle(x-10,y-20,x+w+10,y+h+20))
+		tracker.start_track(imgDisplay,dlib.rectangle(x,y,x+w,y+h))
 
 		self.faceTrackers[currentFaceID] = tracker
 
@@ -53,6 +53,7 @@ class Tracker:
 				 ( y   <= t_y_bar <= (y   + h  ))):
 				matchedFid = fid
 
-				self.faceTrackers[fid].start_track(imgDisplay,dlib.rectangle(x-10,y-20,x+w+10,y+h+20))
+				#self.faceTrackers[fid].start_track(imgDisplay,dlib.rectangle(x-10,y-20,x+w+10,y+h+20))
+				self.faceTrackers[fid].start_track(imgDisplay,dlib.rectangle(x,y,x+w,y+h))
 
 		return matchedFid

@@ -7,6 +7,7 @@ from scipy import misc
 import tensorflow as tf
 import os
 import align.detect_face
+import dlib
 
 #  import other libraries
 import cv2
@@ -25,11 +26,17 @@ import gui.tkgui as tkgui
 import tkinter as tk
 from PIL import ImageTk,Image
 
+import tapway_greet
+
 gpu_memory_fraction = 1.0
 minsize = 40
 # threshold = [ 0.1, 0.2, 0.0001 ]  # three steps's threshold
 threshold = [ 0.6, 0.7, 0.9 ]  # three steps's threshold
 factor = 0.709 # scale factor
+
+# Kirthi save video stuff
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+output_vidname = 'tapway-face-output.avi'
 
 def saveImage(saveImgPath,cropFace,numFace):
 	if not os.path.isdir(saveImgPath):
@@ -71,6 +78,8 @@ def cropFaceAWS(img,bb,crop_factor):
 	crop_h = crop_y2-crop_y1
 	crop_w = crop_x2-crop_x1
 
+	print('Crop face AWS h: {} w: {}'.format(crop_h, crop_w))
+
 	border_h = 0
 	border_w = 0
 
@@ -94,8 +103,9 @@ class GUI(tk.Tk):
 
 		self.file = self.config['video']
 		self.saveImgPath = self.config['imagePath']
+		self.BLUR_THRESH = self.config['blurCap']
 
-		self.frame_interval = 10
+		self.frame_interval = 8 # Originally self.frame_interval = 10
 		self.frame_count = 0
 
 		self.num_face = 0
@@ -113,11 +123,14 @@ class GUI(tk.Tk):
 		self.videoLabel = tk.Label(self.videoFrame)
 		self.videoLabel.pack()
 		self.camera = cv2.VideoCapture(self.file)
+		self.out = cv2.VideoWriter(output_vidname,fourcc, 30.0, (int(self.camera.get(3)), int(self.camera.get(4))))
 		
 		self.frame = tkgui.VerticalScrolledFrame(root)
 		self.frame.pack(side=tk.RIGHT)
 
 		self.imageList = []
+		self.top_faces = []
+		self.top_face_id = 0
 
 		### read single frame to setup imageList
 		'''
@@ -159,6 +172,12 @@ class GUI(tk.Tk):
 		self.gridResetLayout()
 
 	def addFaceToImageList(self,fid,cropface,awsID):
+		# Tapway greet!!!
+		name = None
+		if awsID in self.faceNamesList:
+			name = self.faceNamesList[awsID]
+		tapway_greet.send_slack(awsID, name)
+		
 		cv2image = self.resizeImage(100,100,cropface)
 
 		img = Image.fromarray(cv2image)
@@ -192,12 +211,42 @@ class GUI(tk.Tk):
 			self.videoLabel.configure(image=imgtk)
 		else:
 			print('No frame come in')
-		self.videoLabel.after(10,self.show_frame)
+		self.videoLabel.after(1,self.show_frame)
+		#self.out.write(frame) #Kirthi save vid
 
 	def AWSRekognition(self,enc,cropface,fid):
-		try:
+		# Kirthi code for filtering good faces
+		# resized = cv2.resize(cropface, (100,100), interpolation = cv2.INTER_CUBIC) 
+		# lap = cv2.Laplacian(cropface, cv2.CV_64F).std()
+		# detector = dlib.get_frontal_face_detector()
+		# gray = cv2.cvtColor(cropface, cv2.COLOR_BGR2GRAY)
+		# rects = detector(gray, 1) 
 
+		# # h, w, _ = resized.shape
+		# # print('Laplacian size: {} h:{} w: {}'.format(lap,h,w))
+		
+		# not_blurry = lap >= self.BLUR_THRESH
+		# # If front face is detected, len(rects > 0
+		# #good_face = len(rects) > 0
+		# good_face = True
+		# print('Laplacian: ', lap)
+		# if (not_blurry and good_face):
+		# 	#self.top_faces.append(cropface)
+		# 	# fname = '{}.jpg'.format(self.top_face_id)
+		# 	# cv2.imwrite('./good_faces/'+fname, cropface)
+		# 	# print("")
+		# 	# print("==============")
+		# 	# print("Good candidate")
+		# 	# print("==============")
+		# 	# print("")
+		# 	self.top_face_id += 1
+		# else:
+		# 	print('Did not send to AWS because image doest not satisfy quality constraints - Please configure config.json if you would like to change the constraints')
+		# 	#return None
+		
+		try:
 			res  = aws.search_faces(enc)
+			print(res)
 			if len(res['FaceMatches']) == 0:
 				res = aws.index_faces(enc)
 				awsID = res['FaceRecords'][0]['Face']['FaceId']
@@ -247,6 +296,7 @@ class GUI(tk.Tk):
 					text = awsID
 					rectColor = (0,0,255)
 
+
 			textSize = cv2.getTextSize(text,cv2.FONT_HERSHEY_SIMPLEX,0.5,2)[0]
 			textX = int(t_x+t_w/2-(textSize[0])/2)
 			textY = int(t_y)
@@ -259,6 +309,7 @@ class GUI(tk.Tk):
 			cv2.putText(imgDisplay, text, textLoc, 
 						cv2.FONT_HERSHEY_SIMPLEX,
 						0.5, (255, 255, 255), 2)
+
 
 	def popup(self,fid,imgtk,awsID):
 		print(awsID)
@@ -291,19 +342,48 @@ class GUI(tk.Tk):
 	def detectFace(self,imgDisplay):
 		### Avoid use imgDisplay = frame
 		frame = imgDisplay.copy()
-
+		
 		self.frame_count += 1
 		self.tracker.deleteTrack(imgDisplay)
 
 		if (self.frame_count%self.frame_interval) == 0:
-			bounding_boxes,_ = align.detect_face.detect_face(imgDisplay, minsize, pnet, rnet, onet, threshold, factor)
+			bounding_boxes, points = align.detect_face.detect_face(imgDisplay, minsize, pnet, rnet, onet, threshold, factor)
+			
+			# Kirthi code for detection of facial landmarks using facenet
+			# if ((10, 1) == points.shape):
+			# 	for i in range(len(points))[:5]:
+			# 		x = points[i][0]
+			# 		y = points[i+5][0]
+			# 		print("({}, {}),".format(x,y))
+			# 		#cv2.circle(imgDisplay, (x, y), 3, (0,0,255), -1)
+			# 	cv2.imwrite('detect.jpg', imgDisplay)
 
+			# Kirthi code
+			# bbox_idx = 0
+			# End of Kirthi code
+			
 			for (x1, y1, x2, y2, acc) in bounding_boxes:
 
 				w = int(x2-x1)
 				h = int(y2-y1)
 				x = int(x1)
 				y = int(y1)
+
+				# cropped = imgDisplay[y:y+h, x:x+w]
+				# lap = cv2.Laplacian(cropped, cv2.CV_64F).std()
+				# if lap < 20:
+				# 	continue
+				# gray = cv2.cvtColor(imgDisplay, cv2.COLOR_BGR2GRAY)
+				# gx, gy = np.gradient(cropped)
+				# gradient = gx + gy
+				# blur = gradient.var()
+				cv2.imwrite('filter_data/{}.png'.format(self.frame_count), imgDisplay[y:y+h, x:x+w])
+			
+				# Kirthi code
+				# cropped = imgDisplay[y:y+h, x:x+w]
+				# cv2.imwrite('./frames/{}_{}.jpg'.format(self.frame_count, bbox_idx), cropped)
+				# bbox_idx += 1
+				# End of Kirthi code
 
 				matchedFid = self.tracker.getMatchId(imgDisplay,x,y,w,h)
 
