@@ -21,5 +21,5 @@ def send_heartbeat(api_url, ip):
 if __name__ == "__main__":
     myip = get_ip()
     mac = '123456789ABC' # Please configure this mac address manually, for every new node
-    api_url = 'http://192.168.0.4:8000/receiver/vehicle/heartbeat/{}'.format(mac)
+    api_url = 'http://192.168.0.4:8000/receiver/vehicle/heartbeat/{}'.format(mac) # Please configure the API URL also
     send_heartbeat(api_url, myip)
