@@ -3,14 +3,16 @@ import dlib
 class Tracker:
 	def __init__(self,*args,**kwargs):
 		self.faceTrackers = {}
-		self.faceNames = {}
+		self.faceID = {}
 		self.fidsToDelete = []
-		self.trackingQuality = 8
+		self.trackingQuality = 4
 
 	def createTrack(self,imgDisplay,x,y,w,h,currentFaceID):
 		print('Creating new tracker'+str(currentFaceID))
 		tracker = dlib.correlation_tracker()
-		tracker.start_track(imgDisplay,dlib.rectangle(x-10,y-20,x+w+10,y+h+20))
+		#tracker.start_track(imgDisplay,dlib.rectangle(x-10,y-20,x+w+10,y+h+20))
+		tracker.start_track(imgDisplay,dlib.rectangle(x,y,x+w,y+h))
+
 		self.faceTrackers[currentFaceID] = tracker
 
 	def appendDeleteFid(self,fid):
@@ -26,7 +28,9 @@ class Tracker:
 			fid = self.fidsToDelete.pop()
 			self.faceTrackers.pop(fid,None)
 
-	def getMatchId(self,x,y,w,h):
+
+	# def getMatchId(self,x,y,w,h):
+	def getMatchId(self,imgDisplay,x,y,w,h):
 		##calculate centerpoint
 		x_bar = x+0.5*w
 		y_bar = y+0.5*h
@@ -48,4 +52,8 @@ class Tracker:
 				 ( x   <= t_x_bar <= (x   + w  )) and 
 				 ( y   <= t_y_bar <= (y   + h  ))):
 				matchedFid = fid
+
+				#self.faceTrackers[fid].start_track(imgDisplay,dlib.rectangle(x-10,y-20,x+w+10,y+h+20))
+				self.faceTrackers[fid].start_track(imgDisplay,dlib.rectangle(x,y,x+w,y+h))
+
 		return matchedFid

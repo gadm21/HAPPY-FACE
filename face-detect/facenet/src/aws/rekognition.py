@@ -41,14 +41,21 @@ def list_faces():
 	response = client.list_faces(CollectionId='test_collection')
 	return response
 
-### for testing purpose
-if __name__ == '__main__':
+def delete_collection_faces():
 	response = list_faces()
-	print('Face ID list:')
-	for face in response['Faces']:
-		print(face['FaceId'])
-		
-	# delete all face id
+	# print('Face ID list:')
 	# for face in response['Faces']:
-	# 	response = delete_faces([face['FaceId']])
-	# 	print(response)
+	# 	print(face['FaceId'])
+	
+	# delete all face id
+	for face in response['Faces']:
+		response = delete_faces([face['FaceId']])
+		print(response)
+
+### for testing purpose
+# if __name__ == '__main__':
+# 	response = list_faces()
+# 	print('Face ID list:')
+# 	for face in response['Faces']:
+# 		print(face['FaceId'])
+		
