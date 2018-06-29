@@ -139,8 +139,6 @@ def inference():
         idx += 1
         if ret == False:
             continue
-        cv2.imshow('frame', frame)
-        cv2.waitKey(1)
         
         # Prepare image for inferencing.
         image = Image.fromarray(frame)
