@@ -1,2 +1,0 @@
-pip install -r requirements.txt
-./run.sh starts the server, model and worker as well as the heartbeat cron commands
