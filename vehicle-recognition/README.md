@@ -56,11 +56,11 @@ Requests are sent in JSON, How to use each command:
 
 ## What each script does
 #### **heartbeat.py**
-Sends a heartbeat message to a node (node link must be configured by setting the `mac` and `api_url` variables in the main method) \
+Sends a heartbeat message to a node (node link must be configured by setting the `mac` and `api_url` variables in the main method)
 #### **server.py**
 Starts a Flask HTTP Server, that can respond to POST requests such as the ones mentioned above (start/stop/configure)
 #### **main.py**
-Gevent server that runs the Flask server. Note that it is not recommended to run the Flask development server on it's own directly. \
+Gevent server that runs the Flask server. Note that it is not recommended to run the Flask development server on it's own directly.
 #### **model.py**
 Loads weights from a model to recognize car number plates. Reads frame by frame from an RTSP feed, passes it through the model to recognize the characters, while executing a voting algorithm to pick the most frequent numberplate in a given window (`MEMORY` and `THRESHOLD` config parameters are used to tweak the behaviour of this voting algorithm. Once the model has recognized the carplate, the frame is saved to the folder (`SAVE_DIR` in `server_settings.py`). The frame is an image of the car, and the name of the image is in the following format:
 `[SERVER_MAC]_[TIMESTAMP]_[CARPLATE]_x:y:w:h.png`, where _x, y, w, h_ are the values for cropping the number plate (_w_ = width, _h_ = height)
