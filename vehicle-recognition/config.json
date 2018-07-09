@@ -1,0 +1,1 @@
+{"CROP_YMIN": 300, "TEXTS": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", "SCALE": 0.5, "CROP_YMAX": 700, "RTSP_FEED": "rtsp://admin:admin123@tapway1.dlinkddns.com:1234/cam/realmonitor?channel=1&subtype=0", "THRESHOLD": 2, "CROP_XMAX": 1024, "WEIGHT": "model_weights.h5", "MODEL": "model.json", "CROP_XMIN": 200, "MEMORY": 8, "CHANNEL": 1}
