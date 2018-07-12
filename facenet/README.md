@@ -41,3 +41,6 @@ DeepGaze
 
 # GUI
 Tkinter  
+
+# Create Exe (Not Yet Done)
+PyInstaller
