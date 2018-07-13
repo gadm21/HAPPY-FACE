@@ -433,7 +433,28 @@ class GUI(tk.Tk):
 					enc = cv2.imencode('.png',cropface)[1].tostring()
 
 
-					faceImg = imgDisplay[int(y1):int(y2),int(x1):int(x2)]
+					height,width,_ = imgDisplay.shape
+
+					x1_ = x1
+					x2_ = x2
+					y1_ = y1
+					y2_ = y2
+
+					if y1 < 0:
+						y1_ = 0
+
+					if y2 > height:
+						y2_ = height
+
+					if x1 < 0:
+						x1_ = 0
+
+					if x2 > width:
+						x2_ = width
+
+					faceImg = imgDisplay[int(y1_):int(y2_),int(x1_):int(x2_)]
+					# print('bb',x1,x2,y1,y2)
+					# print('face img',faceImg.shape)
 
 					t1 = time.time()
 
