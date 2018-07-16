@@ -21,6 +21,7 @@ from configparser import ConfigParser
 
 import gui.tkgui as tkgui
 import tkinter as tk
+import tkinter.ttk as ttk
 from PIL import ImageTk,Image
 
 import aws.rekognition as aws
@@ -88,9 +89,15 @@ def cropFaceAWS(img,boundingBox,crop_factor):
 
 	return cropface
 
+
 class GUI(tk.Tk):
 	def __init__(self, *args, **kwargs):
 		root = tk.Tk.__init__(self, *args, **kwargs)
+
+		## zhiqin: maybe read initial value from configFile?
+		self.pitchFilter = 30
+		self.yawFilter = 25
+		self.blurFilter = 1
 
 		self.readConfigFile()
 
@@ -129,6 +136,9 @@ class GUI(tk.Tk):
 		editmenu.add_command(label="Delete")
 		editmenu.add_command(label="Select All")
 
+		editmenu.add_separator()
+		editmenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
+
 		menu.add_cascade(label="Edit", menu=editmenu)
 
 		### Under Development (End)####
@@ -164,6 +174,51 @@ class GUI(tk.Tk):
 		self.headPoseEstimator.load_roll_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/roll/cnn_cccdd_30k.tf"))
 		self.headPoseEstimator.load_pitch_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/pitch/cnn_cccdd_30k.tf"))
 		self.headPoseEstimator.load_yaw_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/yaw/cnn_cccdd_30k.tf"))
+
+	def filterParameterPopup(self):
+		newPopup = tk.Tk()
+		newPopup.wm_title("Filter Parameter")
+		newPopup.geometry("300x300")
+		label = ttk.Label(newPopup,text="Pitch Angle: ", font=("Helvetica",10))
+		label.pack(pady=10)
+		value = ttk.Label(newPopup,textvariable=self.pitchFilter)
+		value.pack()
+		pitchScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.pitchFilter, command=lambda _:self.updatePitch(pitch=pitchScale.get()))
+		pitchScale.set(self.pitchFilter)
+		pitchScale.pack()
+		label2 = ttk.Label(newPopup, text="Yaw Angle: ", font=("Helvetica",10))
+		label2.pack(pady=10)
+		value2 = ttk.Label(newPopup, textvariable=self.yawFilter)
+		value2.pack()
+		yawScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.yawFilter, command=lambda _:self.updateYaw(yaw=yawScale.get()))
+		yawScale.set(self.yawFilter)
+		yawScale.pack()
+		label3 = ttk.Label(newPopup, text="Blurriness Factor: ", font=("Helvetica",10))
+		label3.pack(pady=10)
+		value3 = ttk.Label(newPopup, textvariable=self.blurFilter)
+		value3.pack()
+		blurScale = ttk.Scale(newPopup, from_=0, to=100, orient=tk.HORIZONTAL, variable=self.blurFilter, command=lambda _:self.updateBlur(blur=blurScale.get()))
+		blurScale.set(self.blurFilter)
+		blurScale.pack()
+
+		newPopup.mainloop()
+
+	def updatePitch(self, pitch):
+		self.pitchFilter=pitch
+		self.printFilter()
+
+	def updateYaw(self, yaw):
+		self.yawFilter=yaw
+		self.printFilter()
+
+	def updateBlur(self, blur):
+		self.blurFilter=blur
+		self.printFilter()
+
+	def printFilter(self):
+		print("Current pitch filter: {}".format(self.pitchFilter))
+		print("Current yaw filter: {}".format(self.yawFilter))
+		print("Current blur filter: {}\n".format(self.blurFilter))
 
 	def readConfigFile(self):
 		config = ConfigParser()
