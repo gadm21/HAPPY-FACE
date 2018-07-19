@@ -1,4 +1,4 @@
-#   import facenet libraires
+#   import facenet libraries
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -34,17 +34,18 @@ minsize = 40
 threshold = [ 0.6, 0.7, 0.7 ]
 factor = 0.709
 
-
-
-
 def saveImage(saveImgPath,cropFace,numFace):
 	if not os.path.isdir(saveImgPath):
 		os.mkdir(saveImgPath)
 		print('Create new {} path'.format(saveImgPath))
 	cv2.imwrite('{}/face_{}.png'.format(saveImgPath,numFace),cropFace)      
 
-### create image that min 80*80 pixel for aws rekognition
-def cropFaceAWS(img,boundingBox,crop_factor):
+def cropFace(img,boundingBox,crop_factor=0,minHeight=-1,minWidth=-1):
+	'''
+	minHeight = -1 means no minimum height for cropped image
+	minHeight = 80 means if cropped image with height less than 80 
+				it will add padding to the make the image meet the minimum Height
+	'''
 	height,width,_ = img.shape
 
 	x1,y1,x2,y2 = boundingBox
@@ -77,27 +78,29 @@ def cropFaceAWS(img,boundingBox,crop_factor):
 	border_h = 0
 	border_w = 0
 
-	if crop_h < 80:
+	if minHeight != -1 and crop_h < minHeight:
 		border_h = math.ceil((80-crop_h)/2)
 
-	if crop_w < 80:
+	if minWidth != -1 and crop_w < minWidth:
 		border_w = math.ceil((80-crop_w)/2)
 
-	if crop_h < 80 or crop_w < 80:
+	if minHeight != -1 or minWidth != -1:
 		BLACK = [255,255,255]
 		cropface = cv2.copyMakeBorder(cropface,border_h,border_h,border_w,border_w,cv2.BORDER_CONSTANT,value=BLACK)
 
 	return cropface
 
+def resizeImage(sizeX,sizeY,img):
+	height,width,_ = img.shape
+	scaleY = sizeY/height
+	scaleX = sizeX/width
+	resizeImg = cv2.resize(img,(0,0),fx=scaleX,fy=scaleY)
+	return resizeImg
 
+### Note: The three method above will move to other file in later ###
 class GUI(tk.Tk):
 	def __init__(self, *args, **kwargs):
 		root = tk.Tk.__init__(self, *args, **kwargs)
-
-		## zhiqin: maybe read initial value from configFile?
-		self.pitchFilter = 30
-		self.yawFilter = 25
-		self.blurFilter = 1
 
 		self.readConfigFile()
 
@@ -108,40 +111,12 @@ class GUI(tk.Tk):
 		self.currentFaceID = 0
 
 		self.tracker = track.Tracker()
-		self.crop_factor = 0.25
+		self.crop_factor = 0.20
 
 		self.winfo_toplevel().resizable(width=False,height=False)
 		self.winfo_toplevel().title('Tapway Face System')
 
-
-		### Under Development (Start)####
-
-		menu = tk.Menu(self.winfo_toplevel())
-		 
-		new_item = tk.Menu(menu)
-		 
-		new_item.add_command(label='New')
-		 
-		menu.add_cascade(label='File', menu=new_item)
-		 
-		self.winfo_toplevel().config(menu=menu)
-
-		editmenu = tk.Menu(menu)
-
-		editmenu.add_separator()
-
-		editmenu.add_command(label="Cut")
-		editmenu.add_command(label="Copy")
-		editmenu.add_command(label="Paste")
-		editmenu.add_command(label="Delete")
-		editmenu.add_command(label="Select All")
-
-		editmenu.add_separator()
-		editmenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
-
-		menu.add_cascade(label="Edit", menu=editmenu)
-
-		### Under Development (End)####
+		self.createMenu()
 
 		self.videoFrame = tk.ttk.Frame(root,width=600,height=600,borderwidth=0)
 		self.videoFrame.pack(side=tk.LEFT)
@@ -158,22 +133,32 @@ class GUI(tk.Tk):
 		### read single frame to setup imageList
 		_,frame = self.camera.read()
 		self.tracker.videoFrameSize = frame.shape
-		# print(self.tracker.videoFrameSize,' y4eah')
-		'''
-		height,_,_ = frame.shape
-		row = math.ceil(height/120)
-
-		self.addImageList(row*2)
-		'''
 
 		self.addImageList(2)
+
 		self.faceNamesList = {}
+		self.faceAttributesList = {}
 		
 		self.headPoseEstimator = CnnHeadPoseEstimator(sess)
-
 		self.headPoseEstimator.load_roll_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/roll/cnn_cccdd_30k.tf"))
 		self.headPoseEstimator.load_pitch_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/pitch/cnn_cccdd_30k.tf"))
 		self.headPoseEstimator.load_yaw_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/yaw/cnn_cccdd_30k.tf"))
+
+	def createMenu(self):
+		menu = tk.Menu(self.winfo_toplevel())
+		 
+		fileMenu = tk.Menu(menu)
+		fileMenu.add_command(label='New')
+		 
+		menu.add_cascade(label='File', menu=fileMenu)
+		 
+		self.winfo_toplevel().config(menu=menu)
+
+		editMenu = tk.Menu(menu)
+		editMenu.add_separator()
+		editMenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
+
+		menu.add_cascade(label="Edit", menu=editMenu)
 
 	def filterParameterPopup(self):
 		newPopup = tk.Tk()
@@ -230,17 +215,13 @@ class GUI(tk.Tk):
 			self.file = int(self.file)
 
 		self.saveImgPath = config.get('default','imagePath')
-
-	def resizeImage(self,sizeX,sizeY,img):
-		height,width,_ = img.shape
-		scaleY = sizeY/height
-		scaleX = sizeX/width
-		resizeImg = cv2.resize(img,(0,0),fx=scaleX,fy=scaleY)
-		return resizeImg
+		self.pitchFilter = config.getfloat('default','pitchFilter')
+		self.yawFilter = config.getfloat('default','yawFilter') 
+		self.blurFilter = config.getfloat('default','blurFilter')
 
 	def addImageList(self,row):
 		photo = cv2.imread('gui/icon.jpg')
-		cv2image = self.resizeImage(100,100,photo)
+		cv2image = resizeImage(100,100,photo)
 
 		img = Image.fromarray(cv2image)
 		imgtk = ImageTk.PhotoImage(image=img)
@@ -251,17 +232,15 @@ class GUI(tk.Tk):
 			self.imageList.append(imgLabel)
 		self.gridResetLayout()
 
-	def addFaceToImageList(self,fid,cropface,res):
-		cv2image = self.resizeImage(100,100,cropface)
-
+	def addFaceToImageList(self,fid,cropface):
+		cv2image = resizeImage(100,100,cropface)
 		cv2image = cv2.cvtColor(cv2image,cv2.COLOR_BGR2RGBA)
 
 		img = Image.fromarray(cv2image)
 		imgtk = ImageTk.PhotoImage(image=img)
-
-		imgLabel = tk.ttk.Button(self.frame.interior,image=imgtk,command=lambda:self.popup(fid,imgtk,res))
-
+		imgLabel = tk.ttk.Button(self.frame.interior,image=imgtk,command=lambda:self.popup(fid,imgtk))
 		imgLabel.imgtk = imgtk
+
 		self.imageList.append(imgLabel)
 		self.gridResetLayout()
 
@@ -292,22 +271,23 @@ class GUI(tk.Tk):
 
 	def AWSRekognition(self,enc,cropface,fid):
 		try:
-
 			res  = aws.search_faces(enc)
 			if len(res['FaceMatches']) == 0:
 				res = aws.index_faces(enc)
 				awsID = res['FaceRecords'][0]['Face']['FaceId']
 
 				self.tracker.faceID[fid] = awsID
-				self.addFaceToImageList(fid,cropface,res)
+				self.faceAttributesList[fid].awsID = awsID
+				self.addFaceToImageList(fid,cropface)
 
 				print('New Face ID:',awsID)
-
 			else:
 				awsID = res['FaceMatches'][0]['Face']['FaceId']
 
 				self.tracker.faceID[fid] = awsID
-				self.addFaceToImageList(fid,cropface,res)
+				self.faceAttributesList[fid].awsID = awsID
+				self.faceAttributesList[fid].similarity = res['FaceMatches'][0]['Similarity']
+				self.addFaceToImageList(fid,cropface)
 
 				print('Match Face ID {}'.format(awsID))
 
@@ -318,6 +298,7 @@ class GUI(tk.Tk):
 				# cv2.imshow('name',cropface)
 				### delete the face, since aws cant detect it as a face
 				self.tracker.appendDeleteFid(fid)
+				self.faceAttributesList.pop(fid,None)
 			else:
 				print(e)
 			pass
@@ -367,16 +348,9 @@ class GUI(tk.Tk):
 					# print(points.shape)
 					cv2.circle(imgDisplay, (points[i,0],points[i+5,0]), 1, (255, 0, 0), 2)
 
+	def popup(self,fid,imgtk):
 
-	def popup(self,fid,imgtk,res):
-
-		similarity = "N/A (New Face)"
-
-		if 'FaceMatches' in res.keys():
-			awsID = res['FaceMatches'][0]['Face']['FaceId']
-			similarity = res['FaceMatches'][0]['Similarity']
-		else:
-			awsID = res['FaceRecords'][0]['Face']['FaceId']
+		faceAttr = self.faceAttributesList[fid]
 
 		win = tk.Toplevel()
 		win.wm_title("Register Face")
@@ -397,22 +371,22 @@ class GUI(tk.Tk):
 		nameEntry = tk.ttk.Entry(nameFrame)
 		nameEntry.pack(side=tk.LEFT)
 
-		faceid = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Face ID',awsID))
+		faceid = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Face ID',faceAttr.awsID))
 		faceid.pack(fill=tk.X,padx=5)
 
-		similarityFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Similarity',similarity))
+		similarityFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Similarity',faceAttr.similarity))
 		similarityFrame.pack(fill=tk.X,padx=5)
 
-		rollFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Roll','Not yet done'))
+		rollFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Roll(degree)',faceAttr.roll))
 		rollFrame.pack(fill=tk.X,padx=5)
 
-		yawFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Yaw','Not yet done'))
+		yawFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Yaw(degree)',faceAttr.yaw))
 		yawFrame.pack(fill=tk.X,padx=5)
 
-		pitchFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Pitch','Not yet done'))
+		pitchFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Pitch(degree)',faceAttr.pitch))
 		pitchFrame.pack(fill=tk.X,padx=5)
 
-		submit = tk.ttk.Button(frame,text='Submit',width=10,command=lambda:self.submit(awsID,nameEntry.get(),win))
+		submit = tk.ttk.Button(frame,text='Submit',width=10,command=lambda:self.submit(faceAttr.awsID,nameEntry.get(),win))
 		submit.pack(pady=5)
 
 	def submit(self,awsID,name,win):
@@ -427,8 +401,7 @@ class GUI(tk.Tk):
 		2) Three color channel
 		3) Minimum size 64x64
 		''' 
-
-		resizeFaceImg = self.resizeImage(64,64,faceImg)
+		resizeFaceImg = resizeImage(64,64,faceImg)
 
 		roll = self.headPoseEstimator.return_roll(resizeFaceImg)
 		pitch = self.headPoseEstimator.return_pitch(resizeFaceImg)
@@ -468,67 +441,58 @@ class GUI(tk.Tk):
 			for (x1, y1, x2, y2, acc) in bounding_boxes:
 
 				matchedFid = self.tracker.getMatchId(imgDisplay,(x1,y1,x2,y2))
-				##disable tracking algo
-
-				#matchedFid = None ##### remove for enable####oka
-
 
 				if matchedFid is None:
+					faceAttr = FaceAttribute()
+
 					self.currentFaceID += 1
 					self.num_face += 1
 
-					w = int(x2-x1)
-					h = int(y2-y1)
+					faceImg = cropFace(frame,(x1,y1,x2,y2))
 
-					self.tracker.createTrack(imgDisplay,(x1,y1,x2,y2),self.currentFaceID)
-					# print("Face ",self.currentFaceID,"(w,h)",w,h,(w*h))
-					cropface = cropFaceAWS(frame,(x1,y1,x2,y2),self.crop_factor)
-					saveImage(self.saveImgPath,cropface,self.num_face)
-						
-					enc = cv2.imencode('.png',cropface)[1].tostring()
-
-
-					height,width,_ = imgDisplay.shape
-
-					x1_ = x1
-					x2_ = x2
-					y1_ = y1
-					y2_ = y2
-
-					if y1 < 0:
-						y1_ = 0
-
-					if y2 > height:
-						y2_ = height
-
-					if x1 < 0:
-						x1_ = 0
-
-					if x2 > width:
-						x2_ = width
-
-					faceImg = imgDisplay[int(y1_):int(y2_),int(x1_):int(x2_)]
-					# print('bb',x1,x2,y1,y2)
-					# print('face img',faceImg.shape)
-
-					t1 = time.time()
-
-					blur = self.detectBlur(faceImg)
+					blur = self.detectBlur(faceImg,minZero=0.0,thresh=self.blurFilter)
 
 					if blur:
-						print('Blur')
-					else:
-						print('Sharp')
+						print('Filter Blur Image')
+						saveImage('blur_img',faceImg,self.num_face)
+						continue
+					
+					# print('Sharp')
+					saveImage('sharp_img',faceImg,self.num_face)
 
 					roll,pitch,yaw = self.getHeadPoseEstimation(faceImg)
 
-					print("[roll, pitch, yaw]",roll,pitch,yaw)
-					print(time.time()-t1)
+					if abs(yaw) > self.yawFilter or abs(pitch) > self.pitchFilter:
+						print('Exceed Yaw | Pitch Threshold!')
+						continue
+
+					faceAttr.roll = float(roll)
+					faceAttr.pitch = float(pitch)
+					faceAttr.yaw = float(yaw)
+
+					self.faceAttributesList[self.currentFaceID] = faceAttr
+
+					self.tracker.createTrack(imgDisplay,(x1,y1,x2,y2),self.currentFaceID)
+
+					cropface = cropFace(frame,(x1,y1,x2,y2),crop_factor=self.crop_factor,minHeight=80,minWidth=80)
+
+					saveImage(self.saveImgPath,cropface,self.num_face)
+
+					enc = cv2.imencode('.png',cropface)[1].tostring()
 
 					t2 = threading.Thread(target=self.AWSRekognition,args=([enc,cropface,self.currentFaceID]))
 					t2.start()
 
 		self.drawTrackedFace(imgDisplay,points.copy())
+
+class FaceAttribute(object):
+	def __init__(self):
+		self.awsID = None
+		self.yaw = None
+		self.roll = None
+		self.pitch = None
+		#self.blurExtent = None # not yet update
+		self.similarity = 'New Face'
 
 if __name__ == '__main__':
 

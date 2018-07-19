@@ -8,7 +8,7 @@ class Tracker:
 		self.fidsToDelete = []
 		self.trackingQuality = 5
 		self.videoFrameSize = np.empty((0,0,0))
-		self.outOfScreenThreshold = 0.5
+		self.outOfScreenThreshold = 0.4
 
 	def createTrack(self,imgDisplay,boundingBox,currentFaceID):
 
