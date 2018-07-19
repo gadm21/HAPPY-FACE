@@ -161,7 +161,7 @@ class GUI(tk.Tk):
 		menu.add_cascade(label="Edit", menu=editMenu)
 
 	def filterParameterPopup(self):
-		newPopup = tk.Tk()
+		newPopup = tk.Toplevel()
 		newPopup.wm_title("Filter Parameter")
 		newPopup.geometry("300x300")
 		label = ttk.Label(newPopup,text="Pitch Angle: ", font=("Helvetica",10))
