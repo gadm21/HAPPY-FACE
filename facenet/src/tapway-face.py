@@ -22,6 +22,7 @@ from configparser import ConfigParser
 import gui.tkgui as tkgui
 import tkinter as tk
 import tkinter.ttk as ttk
+from tkinter import messagebox
 from PIL import ImageTk,Image
 
 import aws.rekognition as aws
@@ -109,6 +110,9 @@ class GUI(tk.Tk):
 	def __init__(self, *args, **kwargs):
 		root = tk.Tk.__init__(self, *args, **kwargs)
 
+		appIcon = tk.Image("photo", file="gui/tapway.png")
+		self.call('wm','iconphoto',self._w,appIcon)
+
 		self.readConfigFile()
 
 		self.frame_interval = 10
@@ -163,10 +167,26 @@ class GUI(tk.Tk):
 
 		editMenu = tk.Menu(menu)
 		editMenu.add_separator()
-		editMenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
 		editMenu.add_command(label='Configure IP Address', command = lambda : self.changeIPPopup())
+		editMenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
+		editMenu.add_command(label='Delete All Recognition Data', command = lambda : self.askDeleteRecognitionData())
 
 		menu.add_cascade(label="Edit", menu=editMenu)
+
+	def askDeleteRecognitionData(self):
+		message = tk.messagebox.askokcancel("Delete All Recognition Data","Are you sure to delete All Recognition Data?")
+		if message:
+			self.deleteRecognitionData()
+
+	def deleteRecognitionData(self):
+		res = aws.list_faces()
+		faceList = []
+
+		for face in res['Faces']:
+			faceList.append(face['FaceId'])
+
+		aws.delete_faces(faceList)
+		message = tk.messagebox.showinfo('Info','Delete Successfully')
 
 	def changeIPPopup(self):
 		popup = tk.Toplevel()
@@ -368,6 +388,7 @@ class GUI(tk.Tk):
 						cv2.FONT_HERSHEY_SIMPLEX,
 						0.5, (255, 255, 255), 2)
 
+		'''
 		a = points.shape
 		if a[0] > 0:
 			# print(points.shape)
@@ -376,6 +397,7 @@ class GUI(tk.Tk):
 				for i in range(5):
 					# print(points.shape)
 					cv2.circle(imgDisplay, (points[i,0],points[i+5,0]), 1, (255, 0, 0), 2)
+		'''
 
 	def popup(self,fid,imgtk):
 
@@ -387,9 +409,11 @@ class GUI(tk.Tk):
 		frame = tk.ttk.Frame(win,border=2,relief=tk.GROOVE)
 		frame.pack(fill=tk.X,padx=5,pady=5)
 
-		imgLabel = tk.Label(frame,image=imgtk)
+		imgLabel = tk.Label(frame,image=imgtk,relief=tk.GROOVE)
 		imgLabel.imgtk = imgtk
-		imgLabel.pack(fill=tk.X,pady=5)
+		# imgLabel.pack(fill=tk.X,pady=5)
+		imgLabel.pack(fill=tk.X)
+
 
 		nameFrame = tk.ttk.Frame(frame)
 		nameFrame.pack(fill=tk.X,pady=5)
