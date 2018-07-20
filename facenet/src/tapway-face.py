@@ -207,8 +207,9 @@ class GUI(tk.Tk):
 			self.file = ip
 		self.camera.release()
 		self.camera = cv2.VideoCapture(self.file)
-		_, frame = self.camera.read()
-		self.tracker.videoFrameSize = frame.shape
+		flag, frame = self.camera.read()
+		if flag:
+			self.tracker.videoFrameSize = frame.shape
 		print('New IP: ',self.file)
 
 	def filterParameterPopup(self):
