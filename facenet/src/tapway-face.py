@@ -34,6 +34,13 @@ minsize = 40
 threshold = [ 0.6, 0.7, 0.7 ]
 factor = 0.709
 
+def isInt(s):
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
+
 def saveImage(saveImgPath,cropFace,numFace):
 	if not os.path.isdir(saveImgPath):
 		os.mkdir(saveImgPath)
@@ -157,8 +164,30 @@ class GUI(tk.Tk):
 		editMenu = tk.Menu(menu)
 		editMenu.add_separator()
 		editMenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
+		editMenu.add_command(label='Configure IP Address', command = lambda : self.changeIPPopup())
 
 		menu.add_cascade(label="Edit", menu=editMenu)
+
+	def changeIPPopup(self):
+		popup = tk.Toplevel()
+		popup.wm_title('Configure IP Address')
+		label = ttk.Label(popup, text='Enter IP address: ')
+		label.pack(side=tk.LEFT)
+		ip = tk.StringVar(None)
+		input = ttk.Entry(popup, textvariable = ip,width = 40)
+		input.pack(side=tk.LEFT)
+		popup.bind('<Return>',lambda _:self.updateIP(ip=ip.get()) or popup.destroy())
+		button = ttk.Button(popup, text ='OK', command = lambda :self.updateIP(ip=ip.get()) or popup.destroy())
+		button.pack()
+
+	def updateIP(self, ip):
+		if(isInt(ip)):
+			self.file = int(ip)
+		else:
+			self.file = ip
+		self.camera.release()
+		self.camera = cv2.VideoCapture(self.file)
+		print('IP: ',self.file)
 
 	def filterParameterPopup(self):
 		newPopup = tk.Toplevel()
