@@ -16,6 +16,8 @@ import numpy as np
 import base64
 import json
 import math
+import logging
+import logging.config
 import threading
 from configparser import ConfigParser
 
@@ -35,6 +37,12 @@ minsize = 40
 threshold = [ 0.6, 0.7, 0.7 ]
 factor = 0.709
 
+logging.config.fileConfig('logging.conf')
+logging.logThreads = 0
+logging.logProcesses= 0
+logging._srcfile = None
+logger = logging.getLogger('tapway-face')
+
 def isInt(s):
     try:
         int(s)
@@ -45,8 +53,9 @@ def isInt(s):
 def saveImage(saveImgPath,cropFace,numFace):
 	if not os.path.isdir(saveImgPath):
 		os.mkdir(saveImgPath)
-		print('Create new {} path'.format(saveImgPath))
-	cv2.imwrite('{}/face_{}.png'.format(saveImgPath,numFace),cropFace)      
+		logger.warning('Path to {} is created as it does not exist'.format(saveImgPath))
+	cv2.imwrite('{}/face_{}.png'.format(saveImgPath,numFace),cropFace)
+	logger.info('Image of face number {} is saved to {}'.format(numFace,saveImgPath))
 
 def cropFace(img,boundingBox,crop_factor=0,minHeight=-1,minWidth=-1):
 	'''
@@ -108,6 +117,7 @@ def resizeImage(sizeX,sizeY,img):
 ### Note: The three method above will move to other file in later ###
 class GUI(tk.Tk):
 	def __init__(self, *args, **kwargs):
+		logger.info('Initializing Tkinter GUI and loading all libraries')
 		root = tk.Tk.__init__(self, *args, **kwargs)
 
 		appIcon = tk.Image("photo", file="gui/tapway.png")
@@ -155,6 +165,8 @@ class GUI(tk.Tk):
 		self.headPoseEstimator.load_pitch_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/pitch/cnn_cccdd_30k.tf"))
 		self.headPoseEstimator.load_yaw_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/yaw/cnn_cccdd_30k.tf"))
 
+		logger.info('Initialization and loading completed')
+
 	def createMenu(self):
 		menu = tk.Menu(self.winfo_toplevel())
 		 
@@ -177,6 +189,7 @@ class GUI(tk.Tk):
 		message = tk.messagebox.askokcancel("Delete All Recognition Data","Are you sure to delete All Recognition Data?")
 		if message:
 			self.deleteRecognitionData()
+			logger.warning('User requested to delete all recognition data on AWS')
 
 	def deleteRecognitionData(self):
 		res = aws.list_faces()
@@ -187,6 +200,7 @@ class GUI(tk.Tk):
 
 		aws.delete_faces(faceList)
 		message = tk.messagebox.showinfo('Info','Delete Successfully')
+		logger.info('All Recognition data on AWS is deleted successfully')
 
 	def changeIPPopup(self):
 		popup = tk.Toplevel()
@@ -210,7 +224,9 @@ class GUI(tk.Tk):
 		flag, frame = self.camera.read()
 		if flag:
 			self.tracker.videoFrameSize = frame.shape
-		print('New IP: ',self.file)
+			logger.info('New IP has been set to {} by user and has proper input'.format(self.file))
+		else:
+			logger.error('New IP has been set to {} by user and does not has proper input'.format(self.file))
 
 	def filterParameterPopup(self):
 		newPopup = tk.Toplevel()
@@ -242,24 +258,20 @@ class GUI(tk.Tk):
 
 	def updatePitch(self, pitch):
 		self.pitchFilter=pitch
-		self.printFilter()
+		logger.info('New pitch filter value is set to {} by user'.format(pitch))
 
 	def updateYaw(self, yaw):
 		self.yawFilter=yaw
-		self.printFilter()
+		logger.info('New yaw filter value is set to {} by user'.format(yaw))
 
 	def updateBlur(self, blur):
 		self.blurFilter=blur
-		self.printFilter()
-
-	def printFilter(self):
-		print("Current pitch filter: {}".format(self.pitchFilter))
-		print("Current yaw filter: {}".format(self.yawFilter))
-		print("Current blur filter: {}\n".format(self.blurFilter))
+		logger.info('New blur filter factor is set to {} by user'.format(blur))
 
 	def readConfigFile(self):
 		config = ConfigParser()
 		config.read('config.ini')
+		logger.info('Reading configuration from "config.ini"')
 
 		self.file = config.get('default','video')
 
@@ -283,6 +295,7 @@ class GUI(tk.Tk):
 			imgLabel.imgtk = imgtk
 			self.imageList.append(imgLabel)
 		self.gridResetLayout()
+		logger.info('Image list with {} row has been created'.format(row))
 
 	def addFaceToImageList(self,fid,cropface):
 		cv2image = resizeImage(100,100,cropface)
@@ -295,6 +308,7 @@ class GUI(tk.Tk):
 
 		self.imageList.append(imgLabel)
 		self.gridResetLayout()
+		logger.info('New face with ID {} has been added to image list'.format(fid))
 
 	def gridResetLayout(self):
 		### reverse image list for make the latest image in the top of list for GUI view
@@ -318,7 +332,7 @@ class GUI(tk.Tk):
 			self.videoLabel.imgtk = imgtk
 			self.videoLabel.configure(image=imgtk)
 		else:
-			print('No frame come in')
+			logger.error('No frame came in from video feed')
 		self.videoLabel.after(10,self.showFrame)
 
 	def AWSRekognition(self,enc,cropface,fid):
@@ -331,8 +345,7 @@ class GUI(tk.Tk):
 				self.tracker.faceID[fid] = awsID
 				self.faceAttributesList[fid].awsID = awsID
 				self.addFaceToImageList(fid,cropface)
-
-				print('New Face ID:',awsID)
+				logger.info('New Face ID {} from AWS'.format(awsID))
 			else:
 				awsID = res['FaceMatches'][0]['Face']['FaceId']
 
@@ -340,19 +353,19 @@ class GUI(tk.Tk):
 				self.faceAttributesList[fid].awsID = awsID
 				self.faceAttributesList[fid].similarity = res['FaceMatches'][0]['Similarity']
 				self.addFaceToImageList(fid,cropface)
-
-				print('Match Face ID {}'.format(awsID))
+				logger.info('Face ID {} matched'.format(awsID))
 
 		except Exception as e:
 			# aws rekognition will have error if does not detect any face
 			if type(e).__name__ == 'InvalidParameterException':
 				print('aws exception')
+				logger.warning('AWS Exception, no face detected')
 				# cv2.imshow('name',cropface)
 				### delete the face, since aws cant detect it as a face
 				self.tracker.appendDeleteFid(fid)
 				self.faceAttributesList.pop(fid,None)
 			else:
-				print(e)
+				logger.error(e)
 			pass
 
 	def drawTrackedFace(self,imgDisplay,points):
@@ -447,7 +460,8 @@ class GUI(tk.Tk):
 
 	def submit(self,awsID,name,win):
 		self.faceNamesList[awsID] = name
-		win.destroy();
+		win.destroy()
+		logger.info('Face with ID {} has been set to the name {}'.format(awsID,name))
 
 	def getHeadPoseEstimation(self,faceImg):
 		'''
@@ -509,7 +523,7 @@ class GUI(tk.Tk):
 					blur = self.detectBlur(faceImg,minZero=0.0,thresh=self.blurFilter)
 
 					if blur:
-						print('Filter Blur Image')
+						logger.warning('Blur image of face number {} is filtered as it execeeded threshold {}'.format(self.num_face,self.blurFilter))
 						saveImage('blur_img',faceImg,self.num_face)
 						continue
 					
@@ -518,8 +532,11 @@ class GUI(tk.Tk):
 
 					roll,pitch,yaw = self.getHeadPoseEstimation(faceImg)
 
-					if abs(yaw) > self.yawFilter or abs(pitch) > self.pitchFilter:
-						print('Exceed Yaw | Pitch Threshold!')
+					if abs(yaw) > self.yawFilter:
+						logger.warning('Face number {} is filtered as yaw angle ({}) exceeded yaw filter ({})'.format(self.num_face,abs(yaw),self.yawFilter))
+						continue
+					elif abs(pitch)>self.pitchFilter:
+						logger.warning('Face number {} is filtered as pitch angle ({}) exceeded pitch filter ({})'.format(self.num_face, abs(pitch), self.pitchFilter))
 						continue
 
 					faceAttr.roll = float(roll)
@@ -529,6 +546,7 @@ class GUI(tk.Tk):
 					self.faceAttributesList[self.currentFaceID] = faceAttr
 
 					self.tracker.createTrack(imgDisplay,(x1,y1,x2,y2),self.currentFaceID)
+					logger.info('Tracking new face {} in ({},{}), ({},{})'.format(self.currentFaceID,x1,y1,x2,y2))
 
 					cropface = cropFace(frame,(x1,y1,x2,y2),crop_factor=self.crop_factor,minHeight=80,minWidth=80)
 
@@ -538,6 +556,7 @@ class GUI(tk.Tk):
 
 					t2 = threading.Thread(target=self.AWSRekognition,args=([enc,cropface,self.currentFaceID]))
 					t2.start()
+					logger.info('Sending face image number {} to AWS for recognition'.format(self.currentFaceID))
 
 		self.drawTrackedFace(imgDisplay,points.copy())
 
@@ -555,6 +574,7 @@ if __name__ == '__main__':
 	with tf.Graph().as_default():
 		gpu_options = tf.GPUOptions(
 			per_process_gpu_memory_fraction=gpu_memory_fraction)
+		logger.info('Starting new tensorflow session with gpu memory fraction {}'.format(gpu_memory_fraction))
 		sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options,
 			log_device_placement=False))
 		with sess.as_default():
