@@ -17,6 +17,6 @@ def send_heartbeat(api_url, ip):
 
 if __name__ == "__main__":
     myip = get_ip() # Specify parameter portnumber, default is 80
-    mac = '123456789ABC' # Please configure this mac address manually, for every new node
+    mac = '14A78BA221FD' # Please configure this mac address manually, for every new node
     api_url = 'http://data.gotapway.com/receiver/vehicle/heartbeat/{}'.format(mac) # Please configure the API URL also
     send_heartbeat(api_url, myip)
