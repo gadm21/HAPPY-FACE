@@ -198,9 +198,13 @@ class GUI(tk.Tk):
 		for face in res['Faces']:
 			faceList.append(face['FaceId'])
 
-		aws.delete_faces(faceList)
-		message = tk.messagebox.showinfo('Info','Delete Successfully')
-		logger.info('All Recognition data on AWS is deleted successfully')
+		if len(faceList)>0:
+			aws.delete_faces(faceList)
+			message = tk.messagebox.showinfo('Info','Delete Successfully')
+			logger.info('All recognition data on AWS is deleted successfully')
+		else:
+			message = tk.messagebox.showinfo('Info', 'No recognition data to be deleted')
+			logger.info('No recognition data on AWS to be deleted')
 
 	def changeIPPopup(self):
 		popup = tk.Toplevel()
