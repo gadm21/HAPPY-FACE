@@ -12,8 +12,6 @@ import cv2
 def find_local_maximum(Emap, scale):
 
     dimx, dimy = (i / scale for i in Emap.shape)
-    #print '\tdimx', dimx
-    #print '\tdimy', dimx
 
     Emax = []
     vert = 1
@@ -39,29 +37,7 @@ def find_local_maximum(Emap, scale):
 
 def algorithm(image):
 
-    ## shape == image resolution
-    # image = image.resize((309,309), im.ANTIALIAS)
-
-    # width, height = image.size
-    # resize = min(width,height)
-
-    # image = image.resize((resize,resize), im.ANTIALIAS)
-
-    #image.show()
-
-
-
-
     x = np.asarray(image)
-
-
-
-
-    # print(x)
-    # size = min(x.shape[0],x.shape[1])
-    # x = resizeImage(size,size,x)
-    # print(x.shape)
-    #print 'x.shape', x.shape 
 
     ## why 16 why -1
     # crop_x, crop_y = ((i / 16) * 16 - 1 for i in x.shape)
@@ -105,9 +81,7 @@ def algorithm(image):
     # print(Emap1.shape,Emap2.shape,Emap3.shape)
     # print(np.asarray(Emax1).shape,np.asarray(Emax2).shape,np.asarray(Emax3).shape)
 
-
     return Emax1, Emax2, Emax3
-
 
 def ruleset(Emax1, Emax2, Emax3, thresh):
 
@@ -118,8 +92,6 @@ def ruleset(Emax1, Emax2, Emax3, thresh):
 
     dim_offset = 0
     dimx, dimy = len(Emax3) + dim_offset, len(Emax3) + dim_offset
-    #print '\tdimx', dimx
-    #print '\tdimy', dimx
 
     #oka code below
     dimx = len(Emax3)
@@ -167,9 +139,14 @@ def ruleset(Emax1, Emax2, Emax3, thresh):
             else:
 
                 EdgeMap[j].append(0)
+                
+    per = 0
+    BlurExtent = 0
 
-    per = N_da/float(N_edge)
-    BlurExtent = N_brg/float(N_rg)
+    if float(N_edge) > 0:
+        per = N_da/float(N_edge)
+
+    if float(N_rg) > 0:
+        BlurExtent = N_brg/float(N_rg)
 
     return per, BlurExtent
-
