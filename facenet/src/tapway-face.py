@@ -345,17 +345,34 @@ class GUI(tk.Tk):
 			if len(res['FaceMatches']) == 0:
 				res = aws.index_faces(enc)
 				awsID = res['FaceRecords'][0]['Face']['FaceId']
+				faceDetail = res['FaceRecords'][0]['FaceDetail']
 
 				self.tracker.faceID[fid] = awsID
 				self.faceAttributesList[fid].awsID = awsID
+
+				self.faceAttributesList[fid].gender = faceDetail['Gender']['Value']
+				self.faceAttributesList[fid].genderConfidence = faceDetail['Gender']['Confidence']
+
+				self.faceAttributesList[fid].ageRangeLow = faceDetail['AgeRange']['Low']
+				self.faceAttributesList[fid].ageRangeHigh = faceDetail['AgeRange']['High']
+
 				self.addFaceToImageList(fid,cropface)
 				logger.info('New Face ID {} from AWS'.format(awsID))
 			else:
 				awsID = res['FaceMatches'][0]['Face']['FaceId']
 
+				faceAnalysis = aws.detect_faces(enc)
+
 				self.tracker.faceID[fid] = awsID
 				self.faceAttributesList[fid].awsID = awsID
 				self.faceAttributesList[fid].similarity = res['FaceMatches'][0]['Similarity']
+				
+				self.faceAttributesList[fid].gender = faceAnalysis['FaceDetails'][0]['Gender']['Value']
+				self.faceAttributesList[fid].genderConfidence = faceAnalysis['FaceDetails'][0]['Gender']['Confidence']
+
+				self.faceAttributesList[fid].ageRangeLow = faceAnalysis['FaceDetails'][0]['AgeRange']['Low']
+				self.faceAttributesList[fid].ageRangeHigh = faceAnalysis['FaceDetails'][0]['AgeRange']['High']
+
 				self.addFaceToImageList(fid,cropface)
 				logger.info('Face ID {} matched'.format(awsID))
 
@@ -459,6 +476,15 @@ class GUI(tk.Tk):
 		pitchFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Pitch(degree)',faceAttr.pitch))
 		pitchFrame.pack(fill=tk.X,padx=5)
 
+		genderFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Gender(AWS)',faceAttr.gender))
+		genderFrame.pack(fill=tk.X,padx=5)
+
+		genderConfidenceFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Gender Confidence',faceAttr.genderConfidence))
+		genderConfidenceFrame.pack(fill=tk.X,padx=5)
+
+		ageRangeFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}-{2}'.format('Age Range(AWS)',faceAttr.ageRangeLow,faceAttr.ageRangeHigh))
+		ageRangeFrame.pack(fill=tk.X,padx=5)
+
 		submit = tk.ttk.Button(frame,text='Submit',width=10,command=lambda:self.submit(faceAttr.awsID,nameEntry.get(),win))
 		submit.pack(pady=5)
 
@@ -510,8 +536,9 @@ class GUI(tk.Tk):
 		points = np.empty((0,0))
 
 		if (self.frame_count%self.frame_interval) == 0:
+			# t1 = time.time()
 			bounding_boxes,points = align.detect_face.detect_face(imgDisplay, minsize, pnet, rnet, onet, threshold, factor)
-			
+			# print(time.time()-t1,'elapsed')
 			for (x1, y1, x2, y2, acc) in bounding_boxes:
 
 				matchedFid = self.tracker.getMatchId(imgDisplay,(x1,y1,x2,y2))
@@ -572,6 +599,10 @@ class FaceAttribute(object):
 		self.pitch = None
 		#self.blurExtent = None # not yet update
 		self.similarity = 'New Face'
+		self.gender = None
+		self.genderConfidence = None
+		self.ageRangeLow = None
+		self.ageRangeHigh = None
 
 if __name__ == '__main__':
 

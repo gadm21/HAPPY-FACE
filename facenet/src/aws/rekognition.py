@@ -2,6 +2,20 @@ import boto3
 
 client = boto3.client('rekognition','us-east-2')
 
+def detect_faces(cropface):
+	response = client.detect_faces(
+	    Image={
+	        'Bytes': cropface,
+	        # 'S3Object': {
+	        #     'Bucket': 'string',
+	        #     'Name': 'string',
+	        #     'Version': 'string'
+	        # }
+	    },
+	    Attributes=['ALL']
+	)
+	return response
+
 def search_faces(cropface):
 	response = client.search_faces_by_image(CollectionId='test_collection',
 		Image={
