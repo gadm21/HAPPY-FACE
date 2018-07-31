@@ -137,6 +137,8 @@ class GUI(tk.Tk):
 		self.winfo_toplevel().resizable(width=False,height=False)
 		self.winfo_toplevel().title('Tapway Face System')
 
+		self.featureOption = tk.IntVar(value=0)
+
 		self.createMenu()
 
 		self.videoFrame = tk.ttk.Frame(root,width=600,height=600,borderwidth=0)
@@ -180,31 +182,11 @@ class GUI(tk.Tk):
 		editMenu = tk.Menu(menu)
 		editMenu.add_separator()
 		editMenu.add_command(label='Configure IP Address', command = lambda : self.changeIPPopup())
+		editMenu.add_command(label='Feature Option',command=lambda:self.featureOptionPopup())
 		editMenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
-		editMenu.add_command(label='Delete All Recognition Data', command = lambda : self.askDeleteRecognitionData())
+		editMenu.add_command(label='Delete All Recognition Data', command = lambda : self.deleteRecognitionPopup())
 
 		menu.add_cascade(label="Edit", menu=editMenu)
-
-	def askDeleteRecognitionData(self):
-		message = tk.messagebox.askokcancel("Delete All Recognition Data","Are you sure to delete All Recognition Data?")
-		if message:
-			self.deleteRecognitionData()
-			logger.warning('User requested to delete all recognition data on AWS')
-
-	def deleteRecognitionData(self):
-		res = aws.list_faces()
-		faceList = []
-
-		for face in res['Faces']:
-			faceList.append(face['FaceId'])
-
-		if len(faceList)>0:
-			aws.delete_faces(faceList)
-			message = tk.messagebox.showinfo('Info','Delete Successfully')
-			logger.info('All recognition data on AWS is deleted successfully')
-		else:
-			message = tk.messagebox.showinfo('Info', 'No recognition data to be deleted')
-			logger.info('No recognition data on AWS to be deleted')
 
 	def changeIPPopup(self):
 		popup = tk.Toplevel()
@@ -232,6 +214,16 @@ class GUI(tk.Tk):
 		else:
 			logger.error('New IP has been set to {} by user and does not has proper input'.format(self.file))
 
+	def featureOptionPopup(self):
+		popup = tk.Toplevel()
+		popup.wm_title('Feature Option')
+
+		recognition = tk.Radiobutton(popup,text='Recognition',variable=self.featureOption,value=0,height=5,width=30)
+		demographic = tk.Radiobutton(popup,text='Demographic',variable=self.featureOption,value=1,height=5,width=30)
+
+		recognition.pack()
+		demographic.pack()
+
 	def filterParameterPopup(self):
 		newPopup = tk.Toplevel()
 		newPopup.wm_title("Filter Parameter")
@@ -258,8 +250,6 @@ class GUI(tk.Tk):
 		blurScale.set(self.blurFilter)
 		blurScale.pack()
 
-		newPopup.mainloop()
-
 	def updatePitch(self, pitch):
 		self.pitchFilter=pitch
 		logger.info('New pitch filter value is set to {} by user'.format(pitch))
@@ -271,6 +261,27 @@ class GUI(tk.Tk):
 	def updateBlur(self, blur):
 		self.blurFilter=blur
 		logger.info('New blur filter factor is set to {} by user'.format(blur))
+
+	def deleteRecognitionPopup(self):
+		message = tk.messagebox.askokcancel("Delete All Recognition Data","Are you sure to delete All Recognition Data?")
+		if message:
+			self.deleteRecognition()
+			logger.warning('User requested to delete all recognition data on AWS')
+
+	def deleteRecognition(self):
+		res = aws.list_faces()
+		faceList = []
+
+		for face in res['Faces']:
+			faceList.append(face['FaceId'])
+
+		if len(faceList)>0:
+			aws.delete_faces(faceList)
+			message = tk.messagebox.showinfo('Info','Delete Successfully')
+			logger.info('All recognition data on AWS is deleted successfully')
+		else:
+			message = tk.messagebox.showinfo('Info', 'No recognition data to be deleted')
+			logger.info('No recognition data on AWS to be deleted')
 
 	def readConfigFile(self):
 		config = ConfigParser()
@@ -339,6 +350,24 @@ class GUI(tk.Tk):
 			logger.error('No frame came in from video feed')
 		self.videoLabel.after(10,self.showFrame)
 
+	def AWSDetection(self,enc,cropface,fid):
+		res  = aws.detect_faces(enc)
+		if len(res['FaceDetails']) > 0:
+
+			faceDetail = res['FaceDetails'][0]
+
+			self.tracker.faceID[fid] = str(fid)
+			self.faceAttributesList[fid].awsID = str(fid)
+
+			self.faceAttributesList[fid].gender = faceDetail['Gender']['Value']
+			self.faceAttributesList[fid].genderConfidence = faceDetail['Gender']['Confidence']
+
+			self.faceAttributesList[fid].ageRangeLow = faceDetail['AgeRange']['Low']
+			self.faceAttributesList[fid].ageRangeHigh = faceDetail['AgeRange']['High']
+
+			self.addFaceToImageList(fid,cropface)
+			logger.info('New Tracked Face ID {}'.format(fid))
+
 	def AWSRekognition(self,enc,cropface,fid):
 		try:
 			res  = aws.search_faces(enc)
@@ -350,11 +379,11 @@ class GUI(tk.Tk):
 				self.tracker.faceID[fid] = awsID
 				self.faceAttributesList[fid].awsID = awsID
 
-				self.faceAttributesList[fid].gender = faceDetail['Gender']['Value']
-				self.faceAttributesList[fid].genderConfidence = faceDetail['Gender']['Confidence']
+				# self.faceAttributesList[fid].gender = faceDetail['Gender']['Value']
+				# self.faceAttributesList[fid].genderConfidence = faceDetail['Gender']['Confidence']
 
-				self.faceAttributesList[fid].ageRangeLow = faceDetail['AgeRange']['Low']
-				self.faceAttributesList[fid].ageRangeHigh = faceDetail['AgeRange']['High']
+				# self.faceAttributesList[fid].ageRangeLow = faceDetail['AgeRange']['Low']
+				# self.faceAttributesList[fid].ageRangeHigh = faceDetail['AgeRange']['High']
 
 				self.addFaceToImageList(fid,cropface)
 				logger.info('New Face ID {} from AWS'.format(awsID))
@@ -367,11 +396,11 @@ class GUI(tk.Tk):
 				self.faceAttributesList[fid].awsID = awsID
 				self.faceAttributesList[fid].similarity = res['FaceMatches'][0]['Similarity']
 				
-				self.faceAttributesList[fid].gender = faceAnalysis['FaceDetails'][0]['Gender']['Value']
-				self.faceAttributesList[fid].genderConfidence = faceAnalysis['FaceDetails'][0]['Gender']['Confidence']
+				# self.faceAttributesList[fid].gender = faceAnalysis['FaceDetails'][0]['Gender']['Value']
+				# self.faceAttributesList[fid].genderConfidence = faceAnalysis['FaceDetails'][0]['Gender']['Confidence']
 
-				self.faceAttributesList[fid].ageRangeLow = faceAnalysis['FaceDetails'][0]['AgeRange']['Low']
-				self.faceAttributesList[fid].ageRangeHigh = faceAnalysis['FaceDetails'][0]['AgeRange']['High']
+				# self.faceAttributesList[fid].ageRangeLow = faceAnalysis['FaceDetails'][0]['AgeRange']['Low']
+				# self.faceAttributesList[fid].ageRangeHigh = faceAnalysis['FaceDetails'][0]['AgeRange']['High']
 
 				self.addFaceToImageList(fid,cropface)
 				logger.info('Face ID {} matched'.format(awsID))
@@ -585,8 +614,13 @@ class GUI(tk.Tk):
 
 					enc = cv2.imencode('.png',cropface)[1].tostring()
 
-					t2 = threading.Thread(target=self.AWSRekognition,args=([enc,cropface,self.currentFaceID]))
+					if self.featureOption.get() == 0:
+						t2 = threading.Thread(target=self.AWSRekognition,args=([enc,cropface,self.currentFaceID]))
+					else:
+						t2 = threading.Thread(target=self.AWSDetection,args=([enc,cropface,self.currentFaceID]))
+
 					t2.start()
+
 					logger.info('Sending face image number {} to AWS for recognition'.format(self.currentFaceID))
 
 		self.drawTrackedFace(imgDisplay,points.copy())
