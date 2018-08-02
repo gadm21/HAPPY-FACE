@@ -148,15 +148,11 @@ class GUI(tk.Tk):
 		self.frame = tkgui.VerticalScrolledFrame(root)
 		self.frame.pack(side=tk.RIGHT,fill='y',expand=False)
 
-		self.videoLabel = tk.Canvas(root, width=frame.shape[1], height=frame.shape[0])
+		self.videoLabel = tk.Canvas(root, width=frame.shape[1], height=frame.shape[0],highlightthickness=0)
 		self.videoLabel.pack(side=tk.RIGHT,fill='both',expand=True)
 		self.videoLabel.image = None
 
 		self.imageList = []
-
-		### read single frame to setup imageList
-		_,frame = self.camera.read()
-		self.tracker.videoFrameSize = frame.shape
 
 		self.addImageList(2)
 
@@ -359,21 +355,26 @@ class GUI(tk.Tk):
 			self.videoLabel.update()
 			size = (self.videoLabel.winfo_width(), self.videoLabel.winfo_height())
 			### resize img if there is empty spaces
+			check = False
 			if self.bbox('bg') != origin + size:
+				check = True
 				wpercent = (size[0] / float(img.size[0]))
 				hpercent = (size[1] / float(img.size[1]))
 				### scale while maintaining aspect ratio
 				if wpercent < hpercent:
 					hsize = int((float(img.size[1]) * float(wpercent)))
-					img = img.resize((size[0], hsize), Image.ANTIALIAS)
+					img = img.resize((max(1,size[0]), max(1,hsize)), Image.ANTIALIAS)
 				else:
 					wsize = int((float(img.size[0]) * float(hpercent)))
-					img = img.resize((wsize, size[1]), Image.ANTIALIAS)
+					img = img.resize((max(1,wsize), max(1,size[1])), Image.ANTIALIAS)
 			self.videoLabel.image = img
 			self.videoLabel.imgtk = ImageTk.PhotoImage(image=self.videoLabel.image)
 			self.videoLabel.delete('bg')
 			self.videoLabel.create_image(*origin, anchor='nw', image=self.videoLabel.imgtk)
 			self.videoLabel.tag_lower('bg', 'all')
+			if check:
+				self.frame.update()
+				self.geometry('{}x{}'.format(int(img.width+self.frame.winfo_width()),int(img.height)))
 		else:
 			logger.error('No frame came in from video feed')
 		self.videoLabel.after(10,self.showFrame)
