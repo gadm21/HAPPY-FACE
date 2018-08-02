@@ -134,22 +134,23 @@ class GUI(tk.Tk):
 		self.tracker = track.Tracker()
 		self.crop_factor = 0.20
 
-		self.winfo_toplevel().resizable(width=False,height=False)
 		self.winfo_toplevel().title('Tapway Face System')
 
 		self.featureOption = tk.IntVar(value=0)
 
 		self.createMenu()
 
-		self.videoFrame = tk.ttk.Frame(root,width=600,height=600,borderwidth=0)
-		self.videoFrame.pack(side=tk.LEFT)
-
-		self.videoLabel = tk.Label(self.videoFrame)
-		self.videoLabel.pack()
+		### read single frame to setup imageList
 		self.camera = cv2.VideoCapture(self.file)
-		
+		_,frame = self.camera.read()
+		self.tracker.videoFrameSize = frame.shape
+
 		self.frame = tkgui.VerticalScrolledFrame(root)
-		self.frame.pack(side=tk.RIGHT)
+		self.frame.pack(side=tk.RIGHT,fill='y',expand=False)
+
+		self.videoLabel = tk.Canvas(root, width=frame.shape[1], height=frame.shape[0])
+		self.videoLabel.pack(side=tk.RIGHT,fill='both',expand=True)
+		self.videoLabel.image = None
 
 		self.imageList = []
 
@@ -190,18 +191,24 @@ class GUI(tk.Tk):
 
 	def changeIPPopup(self):
 		popup = tk.Toplevel()
+		popup.resizable(width=False,height=False)
 		popup.wm_title('Configure IP Address')
 		label = ttk.Label(popup, text='Enter IP address: ')
 		label.pack(side=tk.LEFT)
 		ip = tk.StringVar(None)
+		ip.set(str(self.file))
 		input = ttk.Entry(popup, textvariable = ip,width = 40)
+		input.selection_range(0,tk.END)
 		input.pack(side=tk.LEFT)
 		popup.bind('<Return>',lambda _:self.updateIP(ip=ip.get()) or popup.destroy())
 		button = ttk.Button(popup, text ='OK', command = lambda :self.updateIP(ip=ip.get()) or popup.destroy())
 		button.pack()
+		input.focus()
 
 	def updateIP(self, ip):
-		if(isInt(ip)):
+		if ip=='':
+			pass
+		elif(isInt(ip)):
 			self.file = int(ip)
 		else:
 			self.file = ip
@@ -210,22 +217,26 @@ class GUI(tk.Tk):
 		flag, frame = self.camera.read()
 		if flag:
 			self.tracker.videoFrameSize = frame.shape
+			self.videoLabel.config(width=frame.shape[1],height=frame.shape[0])
 			logger.info('New IP has been set to {} by user and has proper input'.format(self.file))
 		else:
 			logger.error('New IP has been set to {} by user and does not has proper input'.format(self.file))
 
 	def featureOptionPopup(self):
 		popup = tk.Toplevel()
+		popup.resizable(width=False,height=False)
 		popup.wm_title('Feature Option')
 
-		recognition = tk.Radiobutton(popup,text='Recognition',variable=self.featureOption,value=0,height=5,width=30)
-		demographic = tk.Radiobutton(popup,text='Demographic',variable=self.featureOption,value=1,height=5,width=30)
+		recognition = tk.Radiobutton(popup,text='Recognition',variable=self.featureOption,value=0,height=5,width=30,command= lambda:logger.info('Recognition feature is selected'))
+		demographic = tk.Radiobutton(popup,text='Demographic',variable=self.featureOption,value=1,height=5,width=30,command= lambda:logger.info('Demographic feature is selected'))
 
 		recognition.pack()
 		demographic.pack()
+		popup.focus()
 
 	def filterParameterPopup(self):
 		newPopup = tk.Toplevel()
+		newPopup.resizable(width=False,height=False)
 		newPopup.wm_title("Filter Parameter")
 		newPopup.geometry("300x300")
 		label = ttk.Label(newPopup,text="Pitch Angle: ", font=("Helvetica",10))
@@ -249,6 +260,7 @@ class GUI(tk.Tk):
 		blurScale = ttk.Scale(newPopup, from_=0, to=100, orient=tk.HORIZONTAL, variable=self.blurFilter, command=lambda _:self.updateBlur(blur=blurScale.get()))
 		blurScale.set(self.blurFilter)
 		blurScale.pack()
+		newPopup.focus()
 
 	def updatePitch(self, pitch):
 		self.pitchFilter=pitch
@@ -343,9 +355,25 @@ class GUI(tk.Tk):
 			cv2image = cv2.cvtColor(frame,cv2.COLOR_BGR2RGBA)
 
 			img = Image.fromarray(cv2image)
-			imgtk = ImageTk.PhotoImage(image=img)
-			self.videoLabel.imgtk = imgtk
-			self.videoLabel.configure(image=imgtk)
+			origin = (0, 0)
+			self.videoLabel.update()
+			size = (self.videoLabel.winfo_width(), self.videoLabel.winfo_height())
+			### resize img if there is empty spaces
+			if self.bbox('bg') != origin + size:
+				wpercent = (size[0] / float(img.size[0]))
+				hpercent = (size[1] / float(img.size[1]))
+				### scale while maintaining aspect ratio
+				if wpercent < hpercent:
+					hsize = int((float(img.size[1]) * float(wpercent)))
+					img = img.resize((size[0], hsize), Image.ANTIALIAS)
+				else:
+					wsize = int((float(img.size[0]) * float(hpercent)))
+					img = img.resize((wsize, size[1]), Image.ANTIALIAS)
+			self.videoLabel.image = img
+			self.videoLabel.imgtk = ImageTk.PhotoImage(image=self.videoLabel.image)
+			self.videoLabel.delete('bg')
+			self.videoLabel.create_image(*origin, anchor='nw', image=self.videoLabel.imgtk)
+			self.videoLabel.tag_lower('bg', 'all')
 		else:
 			logger.error('No frame came in from video feed')
 		self.videoLabel.after(10,self.showFrame)
@@ -390,7 +418,7 @@ class GUI(tk.Tk):
 			else:
 				awsID = res['FaceMatches'][0]['Face']['FaceId']
 
-				faceAnalysis = aws.detect_faces(enc)
+				# faceAnalysis = aws.detect_faces(enc)
 
 				self.tracker.faceID[fid] = awsID
 				self.faceAttributesList[fid].awsID = awsID
@@ -470,6 +498,7 @@ class GUI(tk.Tk):
 		faceAttr = self.faceAttributesList[fid]
 
 		win = tk.Toplevel()
+		win.resizable(width=False,height=False)
 		win.wm_title("Register Face")
 
 		frame = tk.ttk.Frame(win,border=2,relief=tk.GROOVE)
@@ -477,7 +506,6 @@ class GUI(tk.Tk):
 
 		imgLabel = tk.Label(frame,image=imgtk,relief=tk.GROOVE)
 		imgLabel.imgtk = imgtk
-		# imgLabel.pack(fill=tk.X,pady=5)
 		imgLabel.pack(fill=tk.X)
 
 
@@ -488,6 +516,11 @@ class GUI(tk.Tk):
 		nameLabel.pack(side=tk.LEFT,padx=5)
 
 		nameEntry = tk.ttk.Entry(nameFrame)
+		name = faceAttr.awsID
+		if faceAttr.awsID in self.faceNamesList.keys():
+			name = self.faceNamesList[faceAttr.awsID]
+		nameEntry.insert(0, name)
+		nameEntry.selection_range(0,tk.END)
 		nameEntry.pack(side=tk.LEFT)
 
 		faceid = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Face ID',faceAttr.awsID))
@@ -516,6 +549,9 @@ class GUI(tk.Tk):
 
 		submit = tk.ttk.Button(frame,text='Submit',width=10,command=lambda:self.submit(faceAttr.awsID,nameEntry.get(),win))
 		submit.pack(pady=5)
+		win.bind('<Return>',lambda _:self.submit(faceAttr.awsID,nameEntry.get(),win))
+
+		nameEntry.focus()
 
 	def submit(self,awsID,name,win):
 		self.faceNamesList[awsID] = name
@@ -587,7 +623,6 @@ class GUI(tk.Tk):
 						saveImage('blur_img',faceImg,self.num_face)
 						continue
 					
-					# print('Sharp')
 					saveImage('sharp_img',faceImg,self.num_face)
 
 					roll,pitch,yaw = self.getHeadPoseEstimation(faceImg)
