@@ -37,6 +37,12 @@ minsize = 40
 threshold = [ 0.6, 0.7, 0.7 ]
 factor = 0.709
 
+MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
+# age_list=['(0, 2)','(4, 6)','(8, 12)','(15, 20)','(25, 32)','(38, 43)','(48, 53)','(60, 100)']
+age_list=[[0, 2],[4, 6],[8, 12],[15, 20],[25, 32],[38, 43],[48, 53],[60, 100]]
+
+gender_list = ['Male', 'Female']
+
 logging.config.fileConfig('logging.conf')
 logging.logThreads = 0
 logging.logProcesses= 0
@@ -158,13 +164,21 @@ class GUI(tk.Tk):
 
 		self.faceNamesList = {}
 		self.faceAttributesList = {}
-		
+
 		self.headPoseEstimator = CnnHeadPoseEstimator(sess)
 		self.headPoseEstimator.load_roll_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/roll/cnn_cccdd_30k.tf"))
 		self.headPoseEstimator.load_pitch_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/pitch/cnn_cccdd_30k.tf"))
 		self.headPoseEstimator.load_yaw_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/yaw/cnn_cccdd_30k.tf"))
 
-		logger.info('Initialization and loading completed')
+		self.ageNet = cv2.dnn.readNetFromCaffe(
+									"models/age/deploy.prototxt", 
+									"models/age/age_net.caffemodel")
+
+		self.genderNet = cv2.dnn.readNetFromCaffe(
+									"models/gender/deploy.prototxt", 
+									"models/gender/gender_net.caffemodel")
+
+		logger.info('Initialization and loading completed')		
 
 	def createMenu(self):
 		menu = tk.Menu(self.winfo_toplevel())
@@ -225,9 +239,12 @@ class GUI(tk.Tk):
 
 		recognition = tk.Radiobutton(popup,text='Recognition',variable=self.featureOption,value=0,height=5,width=30,command= lambda:logger.info('Recognition feature is selected'))
 		demographic = tk.Radiobutton(popup,text='Demographic',variable=self.featureOption,value=1,height=5,width=30,command= lambda:logger.info('Demographic feature is selected'))
+		demoNonCloud = tk.Radiobutton(popup,text='Demographic (Non Cloud)',variable=self.featureOption,value=2,height=5,width=30,command= lambda:logger.info('Demographic feature (Non Cloud) is selected'))
 
 		recognition.pack()
 		demographic.pack()
+		demoNonCloud.pack()
+
 		popup.focus()
 
 	def filterParameterPopup(self):
@@ -447,6 +464,32 @@ class GUI(tk.Tk):
 				logger.error(e)
 			pass
 
+	def ageGenderEstimation(self,cropface,fid):
+		t1 = time.time()
+		blob = cv2.dnn.blobFromImage(cropface, 1, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
+
+		self.ageNet.setInput(blob)
+		age_preds = self.ageNet.forward()
+		age = age_list[age_preds[0].argmax()]
+
+		self.genderNet.setInput(blob)
+		gender_preds = self.genderNet.forward()
+		gender = gender_list[gender_preds[0].argmax()]
+
+		print(time.time()-t1,'age gender time elapsed')
+
+		self.tracker.faceID[fid] = str(fid)
+		self.faceAttributesList[fid].awsID = str(fid)
+
+		self.faceAttributesList[fid].gender = gender
+		self.faceAttributesList[fid].genderConfidence = max(gender_preds[0])*100.0
+
+		self.faceAttributesList[fid].ageRangeLow = age[0]
+		self.faceAttributesList[fid].ageRangeHigh = age[1]
+
+		self.addFaceToImageList(fid,cropface)
+		logger.info('New Tracked Face ID {}'.format(fid))
+
 	def drawTrackedFace(self,imgDisplay,points):
 
 		for fid in self.tracker.faceTrackers.keys():
@@ -539,13 +582,13 @@ class GUI(tk.Tk):
 		pitchFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Pitch(degree)',faceAttr.pitch))
 		pitchFrame.pack(fill=tk.X,padx=5)
 
-		genderFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Gender(AWS)',faceAttr.gender))
+		genderFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Gender',faceAttr.gender))
 		genderFrame.pack(fill=tk.X,padx=5)
 
 		genderConfidenceFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Gender Confidence',faceAttr.genderConfidence))
 		genderConfidenceFrame.pack(fill=tk.X,padx=5)
 
-		ageRangeFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}-{2}'.format('Age Range(AWS)',faceAttr.ageRangeLow,faceAttr.ageRangeHigh))
+		ageRangeFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}-{2}'.format('Age Range',faceAttr.ageRangeLow,faceAttr.ageRangeHigh))
 		ageRangeFrame.pack(fill=tk.X,padx=5)
 
 		submit = tk.ttk.Button(frame,text='Submit',width=10,command=lambda:self.submit(faceAttr.awsID,nameEntry.get(),win))
@@ -652,9 +695,10 @@ class GUI(tk.Tk):
 
 					if self.featureOption.get() == 0:
 						t2 = threading.Thread(target=self.AWSRekognition,args=([enc,cropface,self.currentFaceID]))
-					else:
+					elif self.featureOption.get() == 1:
 						t2 = threading.Thread(target=self.AWSDetection,args=([enc,cropface,self.currentFaceID]))
-
+					else:
+						t2 = threading.Thread(target=self.ageGenderEstimation,args=([cropface,self.currentFaceID]))
 					t2.start()
 
 					logger.info('Sending face image number {} to AWS for recognition'.format(self.currentFaceID))
