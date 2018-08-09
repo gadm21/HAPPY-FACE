@@ -513,10 +513,24 @@ class GUI(tk.Tk):
 					text = awsID
 					rectColor = (0,0,255)
 
-			textSize = cv2.getTextSize(text,cv2.FONT_HERSHEY_SIMPLEX,0.5,2)[0]
-			textX = int(t_x+t_w/2-(textSize[0])/2)
-			textY = int(t_y)
-			textLoc = (textX,textY)
+				if self.featureOption.get()!=0:
+					faceAttr = self.faceAttributesList[fid]
+					gender = 'Gender: {}'.format(str(faceAttr.gender))
+					genderTSize = cv2.getTextSize(gender, cv2.FONT_HERSHEY_SIMPLEX,0.5,2)[0]
+					genderLoc = (int(t_x + t_w / 2 - (genderTSize[0]) / 2),int(t_y-5))
+					age = 'Age: {} - {}'.format(faceAttr.ageRangeLow,faceAttr.ageRangeHigh)
+					ageTSize = cv2.getTextSize(age, cv2.FONT_HERSHEY_SIMPLEX,0.5,2)[0]
+					ageLoc = (int(t_x + t_w / 2 - (ageTSize[0]) / 2),int(t_y+t_h+15))
+					cv2.putText(imgDisplay,gender,genderLoc,cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),2)
+					cv2.putText(imgDisplay,age,ageLoc,cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),2)
+
+			textSize = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+			textX = int(t_x + t_w / 2 - (textSize[0]) / 2)
+			if 'gender' in locals():
+				textY = int(t_y - genderTSize[1])-6
+			else:
+				textY = int(t_y)
+			textLoc = (textX, textY)
 
 			cv2.rectangle(imgDisplay, (t_x, t_y),
 									(t_x + t_w , t_y + t_h),
