@@ -131,7 +131,6 @@ class GUI(tk.Tk):
 
 		self.readConfigFile()
 
-		self.frame_interval = 10
 		self.frame_count = 0
 
 		self.num_face = 0
@@ -319,6 +318,7 @@ class GUI(tk.Tk):
 			self.file = int(self.file)
 
 		self.saveImgPath = config.get('default','imagePath')
+		self.frame_interval = config.getint('default','frameInterval')
 		self.pitchFilter = config.getfloat('default','pitchFilter')
 		self.yawFilter = config.getfloat('default','yawFilter') 
 		self.blurFilter = config.getfloat('default','blurFilter')
