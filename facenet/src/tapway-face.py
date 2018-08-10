@@ -150,8 +150,10 @@ class GUI(tk.Tk):
 		_,frame = self.camera.read()
 		self.tracker.videoFrameSize = frame.shape
 
-		self.frame = tkgui.VerticalScrolledFrame(root)
-		self.frame.pack(side=tk.RIGHT,fill='y',expand=False)
+		self.outerFrame = tk.Frame(root)
+		self.outerFrame.pack(side=tk.RIGHT,fill='y',expand=False)
+		self.frame = tkgui.VerticalScrolledFrame(self.outerFrame)
+		self.frame.pack(fill='both',expand=False)
 
 		self.videoLabel = tk.Canvas(root, width=frame.shape[1], height=frame.shape[0],highlightthickness=0)
 		self.videoLabel.pack(side=tk.RIGHT,fill='both',expand=True)
@@ -160,8 +162,6 @@ class GUI(tk.Tk):
 		self.imageList = []
 		self.addImageList(2)
 		self.loadDataFromFile()
-		self.num_face = 0
-		self.currentFaceID = int(len(self.faceAttributesList)+1)
 
 		self.headPoseEstimator = CnnHeadPoseEstimator(sess)
 		self.headPoseEstimator.load_roll_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/roll/cnn_cccdd_30k.tf"))
@@ -179,13 +179,13 @@ class GUI(tk.Tk):
 		logger.info('Initialization and loading completed')		
 
 	def _quit(self):
-		# try:
-		logger.info('Saving data before destroying window')
-		self.saveDataToFile()
-		self.destroy()
-		logger.info('Destroyed window')
-		# except:
-		# 	logger.error('Unknown error occured when quitting window: '+str(sys.exc_info()[0]))
+		try:
+			logger.info('Saving data before destroying window')
+			self.saveDataToFile()
+			self.destroy()
+			logger.info('Destroyed window')
+		except:
+			logger.error('Unknown error occured when quitting window: '+str(sys.exc_info()[0]))
 
 	def saveDataToFile(self):
 		with open('data/faceAttr.json', 'w') as outfile:
@@ -203,6 +203,7 @@ class GUI(tk.Tk):
 				self.faceNamesList = jsonpickle.decode(json.load(infile))
 			with open('data/faceAttr.json') as infile:
 				self.faceAttributesList = jsonpickle.decode(json.load(infile))
+
 			with open('data/imageCard.pickle', 'rb') as handle:
 				self.savingImageData = pickle.load(handle)
 			for key in self.savingImageData:
@@ -214,6 +215,12 @@ class GUI(tk.Tk):
 			self.faceNamesList = {}
 			self.faceAttributesList = {}
 			self.savingImageData = {}
+		max = 0
+		for keys in self.faceAttributesList.keys():
+			if int(keys)>max:
+				max = int(keys)
+		self.currentFaceID=max
+		self.num_face = max
 
 	def createMenu(self):
 		menu = tk.Menu(self.winfo_toplevel())
@@ -326,11 +333,16 @@ class GUI(tk.Tk):
 		message = tk.messagebox.askokcancel("Delete All Recognition Data","Are you sure to delete All Recognition Data?")
 		if message:
 			self.deleteRecognition()
+			self.num_face=0
+			self.currentFaceID=0
 			self.faceNamesList = {}
 			self.faceAttributesList = {}
+			self.imageList = []
 			self.savingImageData = {}
 			self.tracker.deleteAll()
-			self.frame.clearContent()
+			self.frame.destroy()
+			self.frame = tkgui.VerticalScrolledFrame(self.outerFrame)
+			self.frame.pack(fill='both', expand=False)
 			self.addImageList(2)
 			logger.warning('User requested to delete all recognition data on AWS')
 
@@ -533,7 +545,7 @@ class GUI(tk.Tk):
 		self.faceAttributesList[fid].awsID = str(fid)
 
 		self.faceAttributesList[fid].gender = gender
-		self.faceAttributesList[fid].genderConfidence = max(gender_preds[0])*100.0
+		self.faceAttributesList[fid].genderConfidence = float(max(gender_preds[0])*100.0)
 
 		self.faceAttributesList[fid].ageRangeLow = age[0]
 		self.faceAttributesList[fid].ageRangeHigh = age[1]
@@ -608,7 +620,7 @@ class GUI(tk.Tk):
 
 	def popup(self,fid,imgtk):
 
-		faceAttr = self.faceAttributesList[fid]
+		faceAttr = self.faceAttributesList[str(fid)]
 
 		win = tk.Toplevel()
 		win.resizable(width=False,height=False)
@@ -751,10 +763,11 @@ class GUI(tk.Tk):
 					faceAttr.pitch = float(pitch)
 					faceAttr.yaw = float(yaw)
 
-					self.faceAttributesList[self.currentFaceID] = faceAttr
+					currentFaceID = str(self.currentFaceID)
+					self.faceAttributesList[currentFaceID] = faceAttr
 
-					self.tracker.createTrack(imgDisplay,(x1,y1,x2,y2),self.currentFaceID)
-					logger.info('Tracking new face {} in ({},{}), ({},{})'.format(self.currentFaceID,x1,y1,x2,y2))
+					self.tracker.createTrack(imgDisplay,(x1,y1,x2,y2),currentFaceID)
+					logger.info('Tracking new face {} in ({},{}), ({},{})'.format(currentFaceID,x1,y1,x2,y2))
 
 					cropface = cropFace(frame,(x1,y1,x2,y2),crop_factor=self.crop_factor,minHeight=80,minWidth=80)
 
@@ -763,14 +776,14 @@ class GUI(tk.Tk):
 					enc = cv2.imencode('.png',cropface)[1].tostring()
 
 					if self.featureOption.get() == 0:
-						t2 = threading.Thread(target=self.AWSRekognition,args=([enc,cropface,self.currentFaceID]))
+						t2 = threading.Thread(target=self.AWSRekognition,args=([enc,cropface,currentFaceID]))
 					elif self.featureOption.get() == 1:
-						t2 = threading.Thread(target=self.AWSDetection,args=([enc,cropface,self.currentFaceID]))
+						t2 = threading.Thread(target=self.AWSDetection,args=([enc,cropface,currentFaceID]))
 					else:
-						t2 = threading.Thread(target=self.ageGenderEstimation,args=([cropface,self.currentFaceID]))
+						t2 = threading.Thread(target=self.ageGenderEstimation,args=([cropface,currentFaceID]))
 					t2.start()
 
-					logger.info('Sending face image number {} to AWS for recognition'.format(self.currentFaceID))
+					logger.info('Sending face image number {} to AWS for recognition'.format(currentFaceID))
 
 		self.drawTrackedFace(imgDisplay,points.copy())
 

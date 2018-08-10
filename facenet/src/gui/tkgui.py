@@ -9,14 +9,14 @@ class VerticalScrolledFrame(tk.Frame):
     def __init__(self, parent, *args, **kw):
         tk.Frame.__init__(self, parent, *args, **kw)            
         # create a canvas object and a vertical scrollbar for scrolling it
-        vscrollbar = tk.ttk.Scrollbar(self, orient=tk.VERTICAL)
-        vscrollbar.pack(fill=tk.Y, side=tk.RIGHT, expand=tk.FALSE)
+        self.vscrollbar = tk.ttk.Scrollbar(self, orient=tk.VERTICAL)
+        self.vscrollbar.pack(fill=tk.Y, side=tk.RIGHT, expand=tk.FALSE)
         self.canvas = tk.Canvas(self, bd=0, highlightthickness=0,
-                        yscrollcommand=vscrollbar.set)
+                        yscrollcommand=self.vscrollbar.set)
 
         self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
 
-        vscrollbar.config(command=self.canvas.yview)
+        self.vscrollbar.config(command=self.canvas.yview)
 
         # reset the view
         self.canvas.xview_moveto(0)
@@ -64,8 +64,3 @@ class VerticalScrolledFrame(tk.Frame):
         # canvas.bind_all('<5>',_on_mousewheel,add='+')
         self.canvas.bind_all('<4>',_on_mousewheel)
         self.canvas.bind_all('<5>',_on_mousewheel)
-
-    def clearContent(self):
-        self.interior = interior = tk.ttk.Frame(self.canvas)
-        self.interior_id = self.canvas.create_window(0, 0, window=interior,
-                                           anchor=tk.NW)
