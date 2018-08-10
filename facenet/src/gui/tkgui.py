@@ -55,12 +55,15 @@ class VerticalScrolledFrame(tk.Frame):
 
         def _on_mousewheel(event):
             # print("detected",event.delta,event.num)
-            if event.num == 4:
+            if event.num == 4 or event.delta == 120:
                 self.canvas.yview('scroll',-1,'units')
-            elif event.num == 5:
+            elif event.num == 5 or event.delta == -120:
                 self.canvas.yview('scroll',1,'units')
 
         # canvas.bind_all('<4>',_on_mousewheel,add='+')
         # canvas.bind_all('<5>',_on_mousewheel,add='+')
+        # Window OS
+        self.canvas.bind_all('<MouseWheel>',_on_mousewheel)
+        # Linux OS
         self.canvas.bind_all('<4>',_on_mousewheel)
         self.canvas.bind_all('<5>',_on_mousewheel)
