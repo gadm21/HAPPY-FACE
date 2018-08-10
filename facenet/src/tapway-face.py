@@ -205,7 +205,6 @@ class GUI(tk.Tk):
 				self.faceAttributesList = jsonpickle.decode(json.load(infile))
 			with open('data/imageCard.pickle', 'rb') as handle:
 				self.savingImageData = pickle.load(handle)
-			print(self.savingImageData)
 			for key in self.savingImageData:
 				card = self.savingImageData[key]
 				self.addFaceToImageList(card.fid, card.image)
