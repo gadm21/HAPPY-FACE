@@ -3,6 +3,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import pickle
+
 from scipy import misc
 import tensorflow as tf
 import os
@@ -15,6 +17,7 @@ import sys
 import numpy as np
 import base64
 import json
+import jsonpickle
 import math
 import logging
 import logging.config
@@ -125,16 +128,13 @@ class GUI(tk.Tk):
 	def __init__(self, *args, **kwargs):
 		logger.info('Initializing Tkinter GUI and loading all libraries')
 		root = tk.Tk.__init__(self, *args, **kwargs)
-
+		self.protocol("WM_DELETE_WINDOW", self._quit)
 		appIcon = tk.Image("photo", file="gui/tapway.png")
 		self.call('wm','iconphoto',self._w,appIcon)
 
 		self.readConfigFile()
 
 		self.frame_count = 0
-
-		self.num_face = 0
-		self.currentFaceID = 0
 
 		self.tracker = track.Tracker()
 		self.crop_factor = 0.20
@@ -158,11 +158,10 @@ class GUI(tk.Tk):
 		self.videoLabel.image = None
 
 		self.imageList = []
-
 		self.addImageList(2)
-
-		self.faceNamesList = {}
-		self.faceAttributesList = {}
+		self.loadDataFromFile()
+		self.num_face = 0
+		self.currentFaceID = int(len(self.faceAttributesList)+1)
 
 		self.headPoseEstimator = CnnHeadPoseEstimator(sess)
 		self.headPoseEstimator.load_roll_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/roll/cnn_cccdd_30k.tf"))
@@ -178,6 +177,44 @@ class GUI(tk.Tk):
 									"models/gender/gender_net.caffemodel")
 
 		logger.info('Initialization and loading completed')		
+
+	def _quit(self):
+		# try:
+		logger.info('Saving data before destroying window')
+		self.saveDataToFile()
+		self.destroy()
+		logger.info('Destroyed window')
+		# except:
+		# 	logger.error('Unknown error occured when quitting window: '+str(sys.exc_info()[0]))
+
+	def saveDataToFile(self):
+		with open('data/faceAttr.json', 'w') as outfile:
+			json.dump(jsonpickle.encode(self.faceAttributesList), outfile)
+		with open('data/faceName.json','w') as outfile:
+			json.dump(jsonpickle.encode(self.faceNamesList),outfile)
+		with open('data/imageCard.pickle', 'wb') as handle:
+			pickle.dump(self.savingImageData, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+		logger.info('Saved data to json and pickle files in /data')
+
+	def loadDataFromFile(self):
+		try:
+			with open('data/faceName.json') as infile:
+				self.faceNamesList = jsonpickle.decode(json.load(infile))
+			with open('data/faceAttr.json') as infile:
+				self.faceAttributesList = jsonpickle.decode(json.load(infile))
+			with open('data/imageCard.pickle', 'rb') as handle:
+				self.savingImageData = pickle.load(handle)
+			print(self.savingImageData)
+			for key in self.savingImageData:
+				card = self.savingImageData[key]
+				self.addFaceToImageList(card.fid, card.image)
+			logger.info('Loaded json and pickle data from files in /data')
+		except Exception as ex:
+			logger.warning('Failed to load data from files: '+str(ex))
+			self.faceNamesList = {}
+			self.faceAttributesList = {}
+			self.savingImageData = {}
 
 	def createMenu(self):
 		menu = tk.Menu(self.winfo_toplevel())
@@ -290,6 +327,12 @@ class GUI(tk.Tk):
 		message = tk.messagebox.askokcancel("Delete All Recognition Data","Are you sure to delete All Recognition Data?")
 		if message:
 			self.deleteRecognition()
+			self.faceNamesList = {}
+			self.faceAttributesList = {}
+			self.savingImageData = {}
+			self.tracker.deleteAll()
+			self.frame.clearContent()
+			self.addImageList(2)
 			logger.warning('User requested to delete all recognition data on AWS')
 
 	def deleteRecognition(self):
@@ -413,6 +456,10 @@ class GUI(tk.Tk):
 
 			self.addFaceToImageList(fid,cropface)
 			logger.info('New Tracked Face ID {}'.format(fid))
+			imgCard = ImageCard()
+			imgCard.fid = fid
+			imgCard.image = cropface
+			self.savingImageData[self.num_face] = imgCard
 
 	def AWSRekognition(self,enc,cropface,fid):
 		try:
@@ -451,6 +498,11 @@ class GUI(tk.Tk):
 				self.addFaceToImageList(fid,cropface)
 				logger.info('Face ID {} matched'.format(awsID))
 
+			imgCard = ImageCard()
+			imgCard.fid = fid
+			imgCard.image = cropface
+			self.savingImageData[self.num_face] = imgCard
+
 		except Exception as e:
 			# aws rekognition will have error if does not detect any face
 			if type(e).__name__ == 'InvalidParameterException':
@@ -488,6 +540,10 @@ class GUI(tk.Tk):
 		self.faceAttributesList[fid].ageRangeHigh = age[1]
 
 		self.addFaceToImageList(fid,cropface)
+		imgCard = ImageCard()
+		imgCard.fid = fid
+		imgCard.image = cropface
+		self.savingImageData[self.num_face] = imgCard
 		logger.info('New Tracked Face ID {}'.format(fid))
 
 	def drawTrackedFace(self,imgDisplay,points):
@@ -602,7 +658,7 @@ class GUI(tk.Tk):
 		genderConfidenceFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Gender Confidence',faceAttr.genderConfidence))
 		genderConfidenceFrame.pack(fill=tk.X,padx=5)
 
-		ageRangeFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}-{2}'.format('Age Range',faceAttr.ageRangeLow,faceAttr.ageRangeHigh))
+		ageRangeFrame = tk.ttk.Label(frame,text='{0:15}\t: {1} - {2}'.format('Age Range',faceAttr.ageRangeLow,faceAttr.ageRangeHigh))
 		ageRangeFrame.pack(fill=tk.X,padx=5)
 
 		submit = tk.ttk.Button(frame,text='Submit',width=10,command=lambda:self.submit(faceAttr.awsID,nameEntry.get(),win))
@@ -731,6 +787,11 @@ class FaceAttribute(object):
 		self.genderConfidence = None
 		self.ageRangeLow = None
 		self.ageRangeHigh = None
+
+class ImageCard(object):
+	def __init__(self):
+		self.fid = None
+		self.image = None
 
 if __name__ == '__main__':
 

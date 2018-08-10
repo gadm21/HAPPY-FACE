@@ -27,6 +27,11 @@ class Tracker:
 
 		self.faceTrackers[currentFaceID] = tracker
 
+	def deleteAll(self):
+		for fid in self.faceTrackers.keys():
+			self.fidsToDelete.append(fid)
+
+
 	def appendDeleteFid(self,fid):
 		self.fidsToDelete.append(fid)
 

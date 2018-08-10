@@ -11,22 +11,23 @@ class VerticalScrolledFrame(tk.Frame):
         # create a canvas object and a vertical scrollbar for scrolling it
         vscrollbar = tk.ttk.Scrollbar(self, orient=tk.VERTICAL)
         vscrollbar.pack(fill=tk.Y, side=tk.RIGHT, expand=tk.FALSE)
-        canvas = tk.Canvas(self, bd=0, highlightthickness=0,
+        self.canvas = tk.Canvas(self, bd=0, highlightthickness=0,
                         yscrollcommand=vscrollbar.set)
 
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
+        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=tk.TRUE)
 
-        vscrollbar.config(command=canvas.yview)
+        vscrollbar.config(command=self.canvas.yview)
 
         # reset the view
-        canvas.xview_moveto(0)
-        canvas.yview_moveto(0)
+        self.canvas.xview_moveto(0)
+        self.canvas.yview_moveto(0)
 
         # create a frame inside the canvas which will be scrolled with it
-        self.interior = interior = tk.ttk.Frame(canvas)
+        self.interior = interior = tk.ttk.Frame(self.canvas)
 
-        interior_id = canvas.create_window(0, 0, window=interior,
+        self.interior_id = self.canvas.create_window(0, 0, window=interior,
                                            anchor=tk.NW)
+
 
         # track changes to the canvas and frame width and sync them,
         # also updating the scrollbar
@@ -34,32 +35,37 @@ class VerticalScrolledFrame(tk.Frame):
             # update the scrollbars to match the size of the inner frame
             size = (interior.winfo_reqwidth(), interior.winfo_reqheight())
             # print(str(size),interior.winfo_height())
-            canvas.config(scrollregion="0 0 %s %s" % size)
-            if interior.winfo_reqwidth() != canvas.winfo_width():
+            self.canvas.config(scrollregion="0 0 %s %s" % size)
+            if interior.winfo_reqwidth() != self.canvas.winfo_width():
                 # update the canvas's width to fit the inner frame
-                canvas.config(width=interior.winfo_reqwidth())
+                self.canvas.config(width=interior.winfo_reqwidth())
 
         interior.bind('<Configure>', _configure_interior)
 
         def _configure_canvas(event):
-            if interior.winfo_reqwidth() != canvas.winfo_width():
+            if interior.winfo_reqwidth() != self.canvas.winfo_width():
                 # update the inner frame's width to fill the canvas
-                canvas.itemconfigure(interior_id, width=canvas.winfo_width())
-        canvas.bind('<Configure>', _configure_canvas)
+                self.canvas.itemconfigure(self.interior_id, width=self.canvas.winfo_width())
+        self.canvas.bind('<Configure>', _configure_canvas)
 
         def _configure_canvas_height(event):
-            if self.winfo_toplevel().winfo_height() != canvas.winfo_height():
-                canvas.config(height=self.winfo_toplevel().winfo_height())
-        canvas.bind('<Configure>',_configure_canvas_height)
+            if self.winfo_toplevel().winfo_height() != self.canvas.winfo_height():
+                self.canvas.config(height=self.winfo_toplevel().winfo_height())
+        self.canvas.bind('<Configure>',_configure_canvas_height)
 
         def _on_mousewheel(event):
             # print("detected",event.delta,event.num)
             if event.num == 4:
-                canvas.yview('scroll',-1,'units')
+                self.canvas.yview('scroll',-1,'units')
             elif event.num == 5:
-                canvas.yview('scroll',1,'units')    
+                self.canvas.yview('scroll',1,'units')
 
         # canvas.bind_all('<4>',_on_mousewheel,add='+')
         # canvas.bind_all('<5>',_on_mousewheel,add='+')
-        canvas.bind_all('<4>',_on_mousewheel)
-        canvas.bind_all('<5>',_on_mousewheel)
+        self.canvas.bind_all('<4>',_on_mousewheel)
+        self.canvas.bind_all('<5>',_on_mousewheel)
+
+    def clearContent(self):
+        self.interior = interior = tk.ttk.Frame(self.canvas)
+        self.interior_id = self.canvas.create_window(0, 0, window=interior,
+                                           anchor=tk.NW)
