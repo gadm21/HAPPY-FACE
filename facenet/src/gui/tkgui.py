@@ -67,3 +67,66 @@ class VerticalScrolledFrame(tk.Frame):
         # Linux OS
         self.canvas.bind_all('<4>',_on_mousewheel)
         self.canvas.bind_all('<5>',_on_mousewheel)
+
+class ROIDrawer(tk.Frame):
+    def __init__(self, parent,im, *args, **kw):
+        tk.Frame.__init__(self, parent, *args, **kw)
+        self.im = im
+        width,height = im.size
+        self.x = self.y = 0
+        self.canvas = tk.Canvas(self,width=width,height=height, cursor="cross")
+        self.canvas.pack(side= 'top',fill='both',expand=True)
+        # self.sbarv=tk.Scrollbar(self,orient=tk.VERTICAL)
+        # self.sbarh=tk.Scrollbar(self,orient=tk.HORIZONTAL)
+        # self.sbarv.config(command=self.canvas.yview)
+        # self.sbarh.config(command=self.canvas.xview)
+
+        # self.canvas.config(yscrollcommand=self.sbarv.set)
+        # self.canvas.config(xscrollcommand=self.sbarh.set)
+        #
+        # self.canvas.grid(row=0,column=0,sticky='nsew')
+        # self.sbarv.grid(row=0,column=1,stick='ns')
+        # self.sbarh.grid(row=1,column=0,sticky='ew')
+
+        self.canvas.bind("<ButtonPress-1>", self.on_button_press)
+        self.canvas.bind("<B1-Motion>", self.on_move_press)
+
+        self.rect = None
+
+        self.start_x = None
+        self.start_y = None
+        self.curX = None
+        self.curY = None
+
+        # self.wazil,self.lard=self.im.size
+        # self.canvas.config(scrollregion=(0,0,self.wazil,self.lard))
+        self.tk_im = ImageTk.PhotoImage(self.im)
+        self.canvas.create_image(0,0,anchor="nw",image=self.tk_im)
+
+    def on_button_press(self, event):
+        # save mouse drag start position
+        self.start_x = event.x
+        self.start_y = event.y
+        # create rectangle if not yet exist
+        if not self.rect:
+            self.rect = self.canvas.create_rectangle(self.x, self.y, 1, 1, outline='red')
+
+    def on_move_press(self, event):
+        self.curX = event.x
+        self.curY = event.y
+
+        # w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        # if event.x > 0.9 * w:
+        #     self.canvas.xview_scroll(1, 'units')
+        # elif event.x < 0.1 * w:
+        #     self.canvas.xview_scroll(-1, 'units')
+        # if event.y > 0.9 * h:
+        #     self.canvas.yview_scroll(1, 'units')
+        # elif event.y < 0.1 * h:
+        #     self.canvas.yview_scroll(-1, 'units')
+
+        # expand rectangle as you drag the mouse
+        self.canvas.coords(self.rect, self.start_x, self.start_y, self.curX, self.curY)
+
+    def getRectangleCoor(self):
+        return self.start_x,self.start_y,(self.curX),(self.curY)

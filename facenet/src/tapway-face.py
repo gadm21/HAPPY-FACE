@@ -149,6 +149,11 @@ class GUI(tk.Tk):
 		self.camera = cv2.VideoCapture(self.file)
 		_,frame = self.camera.read()
 		self.tracker.videoFrameSize = frame.shape
+		height,width,_ = frame.shape
+		self.ROIx1=0
+		self.ROIy1=0
+		self.ROIx2=width
+		self.ROIy2=height
 
 		self.outerFrame = tk.Frame(root)
 		self.outerFrame.pack(side=tk.RIGHT,fill='y',expand=False)
@@ -238,8 +243,94 @@ class GUI(tk.Tk):
 		editMenu.add_command(label='Feature Option',command=lambda:self.featureOptionPopup())
 		editMenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
 		editMenu.add_command(label='Delete All Recognition Data', command = lambda : self.deleteRecognitionPopup())
+		editMenu.add_command(label='Select Region of Interest',command = lambda : self.selectROIPopup())
 
 		menu.add_cascade(label="Edit", menu=editMenu)
+
+	def selectROIPopup(self):
+		flag,frame=self.camera.read()
+		assert flag==True
+		cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
+		img = Image.fromarray(cv2image)
+		popup = tk.Toplevel()
+		popup.wm_title('Select Region of Interest')
+		# popup.resizable(width=False, height=False)
+		drawer = tkgui.ROIDrawer(popup,img)
+		drawer.pack(side= 'top',fill='both',expand=True)
+		drawer.canvas.bind("<ButtonRelease-1>", lambda _: self.handleReleaseEvent(drawer, popup))
+
+	def handleReleaseEvent(self, drawer, oldpopup):
+		x1,y1,x2,y2 = drawer.getRectangleCoor()
+		oldpopup.destroy()
+		popup = tk.Toplevel()
+		popup.resizable(width=False, height=False)
+		popup.wm_title('ROI Coordinates Confirmation')
+
+		def validate(val):
+			if str.isdigit(val):
+				return True
+			else:
+				return False
+
+		vcmd = popup.register(validate)
+
+		x1frame = ttk.Frame(popup)
+		x1frame.pack(fill = tk.X, pady = 5,padx=5)
+		x1label = ttk.Label(x1frame, text='X1 Coordinate: ')
+		x1label.pack(side=tk.LEFT, padx =5)
+		x1entry = ttk.Entry(x1frame,validate='key',validatecommand=(vcmd, '%P'))
+		x1entry.insert(0,str(x1))
+		x1entry.selection_range(0, tk.END)
+		x1entry.pack(side=tk.LEFT)
+
+		y1frame = ttk.Frame(popup)
+		y1frame.pack(fill=tk.X,pady=5,padx=5)
+		y1label = ttk.Label(y1frame, text='Y1 Coordinate: ')
+		y1label.pack(side=tk.LEFT, padx=5)
+		y1entry = ttk.Entry(y1frame,validate='key', validatecommand=(vcmd, '%P'))
+		y1entry.insert(0, str(y1))
+		y1entry.pack(side=tk.LEFT)
+
+		x2frame = ttk.Frame(popup)
+		x2frame.pack(fill=tk.X, pady=5,padx=5)
+		x2label = ttk.Label(x2frame, text='X2 Coordinate: ')
+		x2label.pack(side=tk.LEFT, padx=5)
+		x2entry = ttk.Entry(x2frame, validate='key', validatecommand=(vcmd, '%P'))
+		x2entry.insert(0, str(x2))
+		x2entry.pack(side=tk.LEFT)
+
+		y2frame = ttk.Frame(popup)
+		y2frame.pack(fill=tk.X, pady=5,padx=5)
+		y2label = ttk.Label(y2frame, text='Y2 Coordinate: ')
+		y2label.pack(side=tk.LEFT, padx=5)
+		y2entry = ttk.Entry(y2frame, validate='key', validatecommand=(vcmd, '%P'))
+		y2entry.insert(0, str(y2))
+		y2entry.pack(side=tk.LEFT)
+
+		popup.bind('<Return>', lambda _: self.updateROI(x1entry.get(),y1entry.get(),x2entry.get(),y2entry.get()) or popup.destroy())
+		button = ttk.Button(popup, text='OK', command=lambda: self.updateROI(x1entry.get(),y1entry.get(),x2entry.get(),y2entry.get()) or popup.destroy())
+		button.pack(pady = 5)
+
+	def updateROI(self,x1,y1,x2,y2):
+		height, width, _ = self.tracker.videoFrameSize
+		x1 = int(x1)
+		y1 = int(y1)
+		x2 = int(x2)
+		y2 = int(y2)
+		if x1 < 0:
+			x1=0
+		if y1<0:
+			y1=0
+		if x2>width:
+			x2=width
+		if y2>height:
+			y2=height
+		self.ROIx1 = x1
+		self.ROIy1 = y1
+		self.ROIx2 = x2
+		self.ROIy2 = y2
+
+		logger.info('ROI has been set to ({},{}) ({},{})'.format(x1,y1,x2,y2))
 
 	def changeIPPopup(self):
 		popup = tk.Toplevel()
@@ -416,8 +507,11 @@ class GUI(tk.Tk):
 	def showFrame(self):
 		flag, frame = self.camera.read()
 		if flag == True:
+			roi = frame[self.ROIy1:self.ROIy2, self.ROIx1:self.ROIx2]
 			### facenet accept img shape (?,?,3)
-			self.detectFace(frame)
+			self.detectFace(frame, roi)
+			### drawing out ROI
+			cv2.rectangle(frame,(self.ROIx1,self.ROIy1),(self.ROIx2,self.ROIy2),(0,255,0),2)
 			### convert img shape to (?,?,4)
 			cv2image = cv2.cvtColor(frame,cv2.COLOR_BGR2RGBA)
 
@@ -716,7 +810,7 @@ class GUI(tk.Tk):
 		else:
 			return True
 
-	def detectFace(self,imgDisplay):
+	def detectFace(self,imgDisplay, roi):
 		### Avoid use imgDisplay = frame
 		frame = imgDisplay.copy()
 
@@ -727,10 +821,14 @@ class GUI(tk.Tk):
 
 		if (self.frame_count%self.frame_interval) == 0:
 			# t1 = time.time()
-			bounding_boxes,points = align.detect_face.detect_face(imgDisplay, minsize, pnet, rnet, onet, threshold, factor)
+			bounding_boxes,points = align.detect_face.detect_face(roi, minsize, pnet, rnet, onet, threshold, factor)
 			# print(time.time()-t1,'elapsed')
 			for (x1, y1, x2, y2, acc) in bounding_boxes:
-
+				### add back cut out region
+				x1+=self.ROIx1
+				y1+=self.ROIy1
+				x2+=self.ROIx1
+				y2+=self.ROIy1
 				matchedFid = self.tracker.getMatchId(imgDisplay,(x1,y1,x2,y2))
 
 				if matchedFid is None:
