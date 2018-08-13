@@ -193,16 +193,18 @@ class GUI(tk.Tk):
 			logger.error('Unknown error occured when quitting window: '+str(sys.exc_info()[0]))
 
 	def saveDataToFile(self):
-		with open('data/faceAttr.json', 'w') as outfile:
+		with open('data/faceAttr.json', 'w+') as outfile:
 			json.dump(jsonpickle.encode(self.faceAttributesList), outfile)
-		with open('data/faceName.json','w') as outfile:
+		with open('data/faceName.json','w+') as outfile:
 			json.dump(jsonpickle.encode(self.faceNamesList),outfile)
-		with open('data/imageCard.pickle', 'wb') as handle:
+		with open('data/imageCard.pickle', 'wb+') as handle:
 			pickle.dump(self.savingImageData, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
 		logger.info('Saved data to json and pickle files in /data')
 
 	def loadDataFromFile(self):
+		if not os.path.isdir('data'):
+			os.makedirs('data')
 		try:
 			with open('data/faceName.json') as infile:
 				self.faceNamesList = jsonpickle.decode(json.load(infile))
@@ -435,7 +437,7 @@ class GUI(tk.Tk):
 			self.frame = tkgui.VerticalScrolledFrame(self.outerFrame)
 			self.frame.pack(fill='both', expand=False)
 			self.addImageList(2)
-			logger.warning('User requested to delete all recognition data on AWS')
+			logger.warning('User requested to delete all recognition data in database')
 
 	def deleteRecognition(self):
 		res = aws.list_faces()
@@ -449,7 +451,7 @@ class GUI(tk.Tk):
 			message = tk.messagebox.showinfo('Info','Delete Successfully')
 			logger.info('All recognition data on AWS is deleted successfully')
 		else:
-			message = tk.messagebox.showinfo('Info', 'No recognition data to be deleted')
+			message = tk.messagebox.showinfo('Info', 'No AWS recognition data to be deleted')
 			logger.info('No recognition data on AWS to be deleted')
 
 	def readConfigFile(self):
