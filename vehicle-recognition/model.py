@@ -205,7 +205,11 @@ def inference():
 def save_frame(img, carplate):
     ts = time.time()
     st = datetime.fromtimestamp(ts).strftime('%Y-%m-%dT%H:%M:%S')
-    bbox = ":".join([str(max(int(i), 0)) for i in [carplate.minx, carplate.miny, carplate.w, carplate.h]])
+    x1 = carplate.minx + ModelParams.CROP_XMIN
+    y1 = carplate.miny + ModelParams.CROP_YMIN
+    x2 = x1 + carplate.w
+    y2 = y1 + carplate.h
+    bbox = ":".join([str(max(int(i), 0)) for i in [x1, y1, x2, y2]])
     mac = ':'.join(['{:02x}'.format((uuid.getnode() >> i) & 0xff) for i in range(0,8*6,8)][::-1])
     imgname = '{}_{}_{}_{}.png'.format(mac, st, carplate.plate, bbox)
     fullpath = os.path.join(server_settings.SAVE_DIR, imgname)
