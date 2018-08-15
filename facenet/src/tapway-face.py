@@ -3,23 +3,20 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import datetime
 import pickle
 
-from scipy import misc
 import tensorflow as tf
 import os
 import align.detect_face
 
 import cv2
-import matplotlib.pyplot as plt
 import time
 import sys
 import numpy as np
-import base64
 import json
 import jsonpickle
 import math
-import logging
 import logging.config
 import threading
 from configparser import ConfigParser
@@ -129,8 +126,9 @@ class GUI(tk.Tk):
 		logger.info('Initializing Tkinter GUI and loading all libraries')
 		root = tk.Tk.__init__(self, *args, **kwargs)
 		self.protocol("WM_DELETE_WINDOW", self._quit)
-		appIcon = tk.Image("photo", file="gui/tapway.png")
-		self.call('wm','iconphoto',self._w,appIcon)
+		self.appIcon = tk.Image("photo", file="gui/tapway.png")
+		# self.call('wm','iconphoto',self._w, self.appIcon)
+		self.wm_iconphoto(True,self.appIcon)
 
 		self.readConfigFile()
 
@@ -144,7 +142,7 @@ class GUI(tk.Tk):
 		self.featureOption = tk.IntVar(value=0)
 
 		self.createMenu()
-
+		logger.info('Reading a single frame to define frame size')
 		### read single frame to setup imageList
 		self.camera = cv2.VideoCapture(self.file)
 		_,frame = self.camera.read()
@@ -163,16 +161,19 @@ class GUI(tk.Tk):
 		self.videoLabel = tk.Canvas(root, width=frame.shape[1], height=frame.shape[0],highlightthickness=0)
 		self.videoLabel.pack(side=tk.RIGHT,fill='both',expand=True)
 		self.videoLabel.image = None
+		self.videoError = False
 
 		self.imageList = []
 		self.addImageList(2)
 		self.loadDataFromFile()
 
+		logger.info('Loading head pose estimator CNN models')
 		self.headPoseEstimator = CnnHeadPoseEstimator(sess)
 		self.headPoseEstimator.load_roll_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/roll/cnn_cccdd_30k.tf"))
 		self.headPoseEstimator.load_pitch_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/pitch/cnn_cccdd_30k.tf"))
 		self.headPoseEstimator.load_yaw_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/yaw/cnn_cccdd_30k.tf"))
 
+		logger.info('Loading age and gender estimation caffe models')
 		self.ageNet = cv2.dnn.readNetFromCaffe(
 									"models/age/deploy.prototxt", 
 									"models/age/age_net.caffemodel")
@@ -193,10 +194,15 @@ class GUI(tk.Tk):
 			logger.error('Unknown error occured when quitting window: '+str(sys.exc_info()[0]))
 
 	def saveDataToFile(self):
+		logger.info('Saving face attributes data to /data/faceAttr.json')
 		with open('data/faceAttr.json', 'w+') as outfile:
 			json.dump(jsonpickle.encode(self.faceAttributesList), outfile)
+
+		logger.info('Saving face names data to /data/faceName.json')
 		with open('data/faceName.json','w+') as outfile:
 			json.dump(jsonpickle.encode(self.faceNamesList),outfile)
+
+		logger.info('Saving image cards to /data/imageCard.pickle')
 		with open('data/imageCard.pickle', 'wb+') as handle:
 			pickle.dump(self.savingImageData, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -206,16 +212,21 @@ class GUI(tk.Tk):
 		if not os.path.isdir('data'):
 			os.makedirs('data')
 		try:
-			with open('data/faceName.json') as infile:
-				self.faceNamesList = jsonpickle.decode(json.load(infile))
+			logger.info('Loading face attributes data from /data/faceAttr.json')
 			with open('data/faceAttr.json') as infile:
 				self.faceAttributesList = jsonpickle.decode(json.load(infile))
 
+			logger.info('Loading face names data from /data/faceName.json')
+			with open('data/faceName.json') as infile:
+				self.faceNamesList = jsonpickle.decode(json.load(infile))
+
+			logger.info('Loading image cards from /data/imageCard.pickle')
 			with open('data/imageCard.pickle', 'rb') as handle:
 				self.savingImageData = pickle.load(handle)
 			for key in self.savingImageData:
 				card = self.savingImageData[key]
 				self.addFaceToImageList(card.fid, card.image)
+
 			logger.info('Loaded json and pickle data from files in /data')
 		except Exception as ex:
 			logger.warning('Failed to load data from files: '+str(ex))
@@ -251,15 +262,17 @@ class GUI(tk.Tk):
 
 	def selectROIPopup(self):
 		flag,frame=self.camera.read()
-		assert flag==True
-		cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
-		img = Image.fromarray(cv2image)
-		popup = tk.Toplevel()
-		popup.wm_title('Select Region of Interest')
-		# popup.resizable(width=False, height=False)
-		drawer = tkgui.ROIDrawer(popup,img)
-		drawer.pack(side= 'top',fill='both',expand=True)
-		drawer.canvas.bind("<ButtonRelease-1>", lambda _: self.handleReleaseEvent(drawer, popup))
+		if flag ==True:
+			cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
+			img = Image.fromarray(cv2image)
+			popup = tk.Toplevel()
+			popup.wm_title('Select Region of Interest')
+			popup.resizable(width=False, height=False)
+			drawer = tkgui.ROIDrawer(popup,img)
+			drawer.pack(side= 'top',fill='both',expand=True)
+			drawer.canvas.bind("<ButtonRelease-1>", lambda _: self.handleReleaseEvent(drawer, popup))
+		else:
+			message = tk.messagebox.showwarning('Invalid Video Input', "Please specify correct input in 'Edit' > 'Configure IP Address' before defining ROI.")
 
 	def handleReleaseEvent(self, drawer, oldpopup):
 		x1,y1,x2,y2 = drawer.getRectangleCoor()
@@ -360,9 +373,15 @@ class GUI(tk.Tk):
 		self.camera.release()
 		self.camera = cv2.VideoCapture(self.file)
 		flag, frame = self.camera.read()
+		self.videoError = False
 		if flag:
 			self.tracker.videoFrameSize = frame.shape
 			self.videoLabel.config(width=frame.shape[1],height=frame.shape[0])
+			height, width, _ = frame.shape
+			self.ROIx1 = 0
+			self.ROIy1 = 0
+			self.ROIx2 = width
+			self.ROIy2 = height
 			logger.info('New IP has been set to {} by user and has proper input'.format(self.file))
 		else:
 			logger.error('New IP has been set to {} by user and does not has proper input'.format(self.file))
@@ -401,7 +420,7 @@ class GUI(tk.Tk):
 		yawScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.yawFilter, command=lambda _:self.updateYaw(yaw=yawScale.get()))
 		yawScale.set(self.yawFilter)
 		yawScale.pack()
-		label3 = ttk.Label(newPopup, text="Blurriness Factor: ", font=("Helvetica",10))
+		label3 = ttk.Label(newPopup, text="Blur Min Zero: ", font=("Helvetica",10))
 		label3.pack(pady=10)
 		value3 = ttk.Label(newPopup, textvariable=self.blurFilter)
 		value3.pack()
@@ -420,7 +439,7 @@ class GUI(tk.Tk):
 
 	def updateBlur(self, blur):
 		self.blurFilter=blur
-		logger.info('New blur filter factor is set to {} by user'.format(blur))
+		logger.info('New blur min zero filter is set to {} by user'.format(blur))
 
 	def deleteRecognitionPopup(self):
 		message = tk.messagebox.askokcancel("Delete All Recognition Data","Are you sure to delete All Recognition Data?")
@@ -457,7 +476,7 @@ class GUI(tk.Tk):
 	def readConfigFile(self):
 		config = ConfigParser()
 		config.read('config.ini')
-		logger.info('Reading configuration from "config.ini"')
+		logger.info('Reading configuration from /config.ini')
 
 		self.file = config.get('default','video')
 
@@ -491,6 +510,9 @@ class GUI(tk.Tk):
 		img = Image.fromarray(cv2image)
 		imgtk = ImageTk.PhotoImage(image=img)
 		imgLabel = tk.ttk.Button(self.frame.interior,image=imgtk,command=lambda:self.popup(fid,imgtk))
+		if self.faceAttributesList[fid].similarity == 'New Face':
+			ttk.Style().configure("RB.TButton", foreground='black', background='red')
+			imgLabel.configure(style="RB.TButton")
 		imgLabel.imgtk = imgtk
 
 		self.imageList.append(imgLabel)
@@ -509,6 +531,7 @@ class GUI(tk.Tk):
 	def showFrame(self):
 		flag, frame = self.camera.read()
 		if flag == True:
+			self.videoError = False
 			roi = frame[self.ROIy1:self.ROIy2, self.ROIx1:self.ROIx2]
 			### facenet accept img shape (?,?,3)
 			self.detectFace(frame, roi)
@@ -537,13 +560,19 @@ class GUI(tk.Tk):
 			self.videoLabel.image = img
 			self.videoLabel.imgtk = ImageTk.PhotoImage(image=self.videoLabel.image)
 			self.videoLabel.delete('bg')
-			self.videoLabel.create_image(*origin, anchor='nw', image=self.videoLabel.imgtk)
-			self.videoLabel.tag_lower('bg', 'all')
+			self.videoLabel.create_image(*origin, anchor='nw', image=self.videoLabel.imgtk, tags='bg')
+			# self.videoLabel.tag_lower('bg', 'all')
 			if check:
 				self.frame.update()
 				self.geometry('{}x{}'.format(int(img.width+self.frame.winfo_width()),int(img.height)))
 		else:
-			logger.error('No frame came in from video feed')
+			if not self.videoError:
+				logger.error('No frame came in from video feed')
+				self.videoLabel.delete('bg')
+				self.videoLabel.update()
+				size = (self.videoLabel.winfo_width(), self.videoLabel.winfo_height())
+				self.videoLabel.create_text(size[0]/2,size[1]/2, fill='red', text="Invalid video input.\nPlease specify correct input in 'Edit' > 'Configure IP Address'.",font=("Helvetica",15),tags='bg')
+			self.videoError = True
 		self.videoLabel.after(10,self.showFrame)
 
 	def AWSDetection(self,enc,cropface,fid):
@@ -560,9 +589,10 @@ class GUI(tk.Tk):
 
 			self.faceAttributesList[fid].ageRangeLow = faceDetail['AgeRange']['Low']
 			self.faceAttributesList[fid].ageRangeHigh = faceDetail['AgeRange']['High']
+			self.faceAttributesList[fid].recognizedTime = str(datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 
 			self.addFaceToImageList(fid,cropface)
-			logger.info('New Tracked Face ID {}'.format(fid))
+			logger.info('Estimated age and gender of face ID {} using AWS Detection'.format(fid))
 			imgCard = ImageCard()
 			imgCard.fid = fid
 			imgCard.image = cropface
@@ -578,6 +608,7 @@ class GUI(tk.Tk):
 
 				self.tracker.faceID[fid] = awsID
 				self.faceAttributesList[fid].awsID = awsID
+				self.faceAttributesList[fid].recognizedTime = str(datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 
 				# self.faceAttributesList[fid].gender = faceDetail['Gender']['Value']
 				# self.faceAttributesList[fid].genderConfidence = faceDetail['Gender']['Confidence']
@@ -595,6 +626,7 @@ class GUI(tk.Tk):
 				self.tracker.faceID[fid] = awsID
 				self.faceAttributesList[fid].awsID = awsID
 				self.faceAttributesList[fid].similarity = res['FaceMatches'][0]['Similarity']
+				self.faceAttributesList[fid].recognizedTime = str(datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 				
 				# self.faceAttributesList[fid].gender = faceAnalysis['FaceDetails'][0]['Gender']['Value']
 				# self.faceAttributesList[fid].genderConfidence = faceAnalysis['FaceDetails'][0]['Gender']['Confidence']
@@ -645,13 +677,14 @@ class GUI(tk.Tk):
 
 		self.faceAttributesList[fid].ageRangeLow = age[0]
 		self.faceAttributesList[fid].ageRangeHigh = age[1]
+		self.faceAttributesList[fid].recognizedTime = str(datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 
 		self.addFaceToImageList(fid,cropface)
 		imgCard = ImageCard()
 		imgCard.fid = fid
 		imgCard.image = cropface
 		self.savingImageData[self.num_face] = imgCard
-		logger.info('New Tracked Face ID {}'.format(fid))
+		logger.info('Estimated age and gender of face ID {} using non-cloud solution'.format(fid))
 
 	def drawTrackedFace(self,imgDisplay,points):
 
@@ -759,6 +792,12 @@ class GUI(tk.Tk):
 		pitchFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Pitch(degree)',faceAttr.pitch))
 		pitchFrame.pack(fill=tk.X,padx=5)
 
+		perFrame = tk.ttk.Label(frame, text='{0:15}\t: {1}'.format('Blur Per Value', faceAttr.blurPer))
+		perFrame.pack(fill=tk.X, padx=5)
+
+		blurExtentFrame = tk.ttk.Label(frame, text='{0:15}\t: {1}'.format('Blur Extent', faceAttr.blurExtent))
+		blurExtentFrame.pack(fill=tk.X, padx=5)
+
 		genderFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Gender',faceAttr.gender))
 		genderFrame.pack(fill=tk.X,padx=5)
 
@@ -768,6 +807,12 @@ class GUI(tk.Tk):
 		ageRangeFrame = tk.ttk.Label(frame,text='{0:15}\t: {1} - {2}'.format('Age Range',faceAttr.ageRangeLow,faceAttr.ageRangeHigh))
 		ageRangeFrame.pack(fill=tk.X,padx=5)
 
+		detectedTimeFrame = tk.ttk.Label(frame, text='{0:15}\t: {1}'.format('Detected Time', faceAttr.detectedTime))
+		detectedTimeFrame.pack(fill=tk.X, padx=5)
+
+		recognizedTimeFrame = tk.ttk.Label(frame, text='{0:15}\t: {1}'.format('Recognized Time', faceAttr.recognizedTime))
+		recognizedTimeFrame.pack(fill=tk.X, padx=5)
+
 		submit = tk.ttk.Button(frame,text='Submit',width=10,command=lambda:self.submit(faceAttr.awsID,nameEntry.get(),win))
 		submit.pack(pady=5)
 		win.bind('<Return>',lambda _:self.submit(faceAttr.awsID,nameEntry.get(),win))
@@ -775,9 +820,10 @@ class GUI(tk.Tk):
 		nameEntry.focus()
 
 	def submit(self,awsID,name,win):
-		self.faceNamesList[awsID] = name
+		if not awsID == name:
+			self.faceNamesList[awsID] = name
+			logger.info('Face with ID {} has been set to the name {}'.format(awsID,name))
 		win.destroy()
-		logger.info('Face with ID {} has been set to the name {}'.format(awsID,name))
 
 	def getHeadPoseEstimation(self,faceImg):
 		'''
@@ -795,7 +841,7 @@ class GUI(tk.Tk):
 
 		return roll[0,0,0], pitch[0,0,0], yaw[0,0,0]
 
-	def detectBlur(self,img,minZero=0.015,thresh=35):
+	def detectBlur(self,img,thresh=35):
 		'''
 		Code Implementation from Paper
 		[link: https://www.cs.cmu.edu/~htong/pdf/ICME04_tong.pdf]
@@ -806,11 +852,8 @@ class GUI(tk.Tk):
 		per, BlurExtent = blurDetector.ruleset(Emax1, Emax2, Emax3, thresh)
 
 		print('BlurExtent: {}\tper: {}'.format(BlurExtent,per))
-		
-		if per > minZero:
-			return False
-		else:
-			return True
+
+		return per, BlurExtent
 
 	def detectFace(self,imgDisplay, roi):
 		### Avoid use imgDisplay = frame
@@ -835,22 +878,34 @@ class GUI(tk.Tk):
 
 				if matchedFid is None:
 					faceAttr = FaceAttribute()
-
+					# datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y')
+					faceAttr.detectedTime = str(datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 					self.currentFaceID += 1
 					self.num_face += 1
+					logger.info('Detected a face number {} in rectangle ({},{}) ({},{})'.format(self.num_face,x1, y1, x2, y2))
 
 					faceImg = cropFace(frame,(x1,y1,x2,y2))
 
-					blur = self.detectBlur(faceImg,minZero=0.0,thresh=self.blurFilter)
+					per, blurExtent = self.detectBlur(faceImg)
 
-					if blur:
-						logger.warning('Blur image of face number {} is filtered as it execeeded threshold {}'.format(self.num_face,self.blurFilter))
-						saveImage('blur_img',faceImg,self.num_face)
-						continue
-					
-					saveImage('sharp_img',faceImg,self.num_face)
+					blur = True
+
+					if per >= (self.blurFilter/100):
+						blur = False
+
+					faceAttr.blurPer = float(per)
+					faceAttr.blurExtent = float(blurExtent)
 
 					roll,pitch,yaw = self.getHeadPoseEstimation(faceImg)
+
+					logger.info('Attributes of detected face number {} are per: {}, blur extent:{}, yaw:{}, pitch:{}'.format(self.num_face,per,blurExtent,yaw,pitch))
+
+					if blur:
+						logger.warning('Blur image of face number {} is filtered as it per value ({}) is less than blur min zero filter {}'.format(self.num_face,per,(self.blurFilter/100)))
+						saveImage('blur_img',faceImg,self.num_face)
+						continue
+
+					saveImage('sharp_img',faceImg,self.num_face)
 
 					if abs(yaw) > self.yawFilter:
 						logger.warning('Face number {} is filtered as yaw angle ({}) exceeded yaw filter ({})'.format(self.num_face,abs(yaw),self.yawFilter))
@@ -893,12 +948,15 @@ class FaceAttribute(object):
 		self.yaw = None
 		self.roll = None
 		self.pitch = None
-		#self.blurExtent = None # not yet update
+		self.blurPer = None
+		self.blurExtent = None
 		self.similarity = 'New Face'
 		self.gender = None
 		self.genderConfidence = None
 		self.ageRangeLow = None
 		self.ageRangeHigh = None
+		self.detectedTime = None
+		self.recognizedTime = None
 
 class ImageCard(object):
 	def __init__(self):
