@@ -145,6 +145,7 @@ class GUI(tk.Tk):
 		logger.info('Reading a single frame to define frame size')
 		### read single frame to setup imageList
 		self.camera = cv2.VideoCapture(self.file)
+		self.camera.set(cv2.CAP_PROP_BUFFERSIZE,1)
 		_,frame = self.camera.read()
 		self.tracker.videoFrameSize = frame.shape
 		height,width,_ = frame.shape
@@ -152,6 +153,7 @@ class GUI(tk.Tk):
 		self.ROIy1=0
 		self.ROIx2=width
 		self.ROIy2=height
+		logger.info('Video input has resolution {} x {}'.format(width,height))
 
 		self.outerFrame = tk.Frame(root)
 		self.outerFrame.pack(side=tk.RIGHT,fill='y',expand=False)
@@ -263,12 +265,16 @@ class GUI(tk.Tk):
 	def selectROIPopup(self):
 		flag,frame=self.camera.read()
 		if flag ==True:
+			self.videoLabel.update()
+			wwidth = self.videoLabel.winfo_width()
+			wheight =  self.videoLabel.winfo_height()
 			cv2image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGBA)
 			img = Image.fromarray(cv2image)
 			popup = tk.Toplevel()
 			popup.wm_title('Select Region of Interest')
+			# popup.geometry('{}x{}'.format(wwidth,wheight))
 			popup.resizable(width=False, height=False)
-			drawer = tkgui.ROIDrawer(popup,img)
+			drawer = tkgui.ROIDrawer(popup,img,wwidth,wheight)
 			drawer.pack(side= 'top',fill='both',expand=True)
 			drawer.canvas.bind("<ButtonRelease-1>", lambda _: self.handleReleaseEvent(drawer, popup))
 		else:
@@ -372,6 +378,7 @@ class GUI(tk.Tk):
 			self.file = ip
 		self.camera.release()
 		self.camera = cv2.VideoCapture(self.file)
+		self.camera.set(cv2.CAP_PROP_BUFFERSIZE,1)
 		flag, frame = self.camera.read()
 		self.videoError = False
 		if flag:
@@ -382,7 +389,7 @@ class GUI(tk.Tk):
 			self.ROIy1 = 0
 			self.ROIx2 = width
 			self.ROIy2 = height
-			logger.info('New IP has been set to {} by user and has proper input'.format(self.file))
+			logger.info('New IP has been set to {} by user and has resolution {} x {}'.format(self.file,width,height))
 		else:
 			logger.error('New IP has been set to {} by user and does not has proper input'.format(self.file))
 

@@ -69,10 +69,20 @@ class VerticalScrolledFrame(tk.Frame):
         self.canvas.bind_all('<5>',_on_mousewheel)
 
 class ROIDrawer(tk.Frame):
-    def __init__(self, parent,im, *args, **kw):
+    def __init__(self, parent,im, wwidth, wheight, *args, **kw):
         tk.Frame.__init__(self, parent, *args, **kw)
+        self.width,self.height = im.size
+        wpercent = (wwidth / float(im.size[0]))
+        hpercent = (wheight / float(im.size[1]))
+        ### scale while maintaining aspect ratio
+        if wpercent < hpercent:
+            hsize = int((float(im.size[1]) * float(wpercent)))
+            im = im.resize((max(1, wwidth), max(1, hsize)), Image.ANTIALIAS)
+        else:
+            wsize = int((float(im.size[0]) * float(hpercent)))
+            im = im.resize((max(1, wsize), max(1, wheight)), Image.ANTIALIAS)
         self.im = im
-        width,height = im.size
+        width,height = self.im.size
         self.x = self.y = 0
         self.canvas = tk.Canvas(self,width=width,height=height, cursor="cross")
         self.canvas.pack(side= 'top',fill='both',expand=True)
@@ -93,6 +103,8 @@ class ROIDrawer(tk.Frame):
 
         self.rect = None
 
+        self.xratio = width/self.width
+        self.yratio = height/self.height
         self.start_x = None
         self.start_y = None
         self.curX = None
@@ -129,4 +141,24 @@ class ROIDrawer(tk.Frame):
         self.canvas.coords(self.rect, self.start_x, self.start_y, self.curX, self.curY)
 
     def getRectangleCoor(self):
-        return self.start_x,self.start_y,(self.curX),(self.curY)
+        if self.start_x == 0:
+            x1 = 0
+        else:
+            x1 = int(self.start_x/self.xratio)
+
+        if self.start_y == 0:
+            y1 = 0
+        else:
+            y1 = int(self.start_y/self.yratio)
+
+        if self.curX == 0:
+            x2 = 0
+        else:
+            x2 = int(self.curX/self.xratio)
+
+        if self.curY == 0:
+            y2 = 0
+        else:
+            y2 = int(self.curY/self.yratio)
+
+        return x1,y1,x2,y2
