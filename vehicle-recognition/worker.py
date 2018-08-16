@@ -14,10 +14,10 @@ import server_settings
 
 s3 = boto3.client('s3')
 
-def upload_aws(filepath, filename):
+def upload_aws(filepath, key):
     bucket = 'vehicle-recognition'
-    s3.upload_file(filepath, bucket, filename)
-    print('Uploaded {}'.format(filename))
+    s3.upload_file(filepath, bucket, key, ExtraArgs={'ACL': 'public-read'})
+    print('Uploaded {}'.format(key))
     
 def send_server(event):
     filepath = event.src_path
