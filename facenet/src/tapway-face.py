@@ -145,7 +145,7 @@ class GUI(tk.Tk):
 		logger.info('Reading a single frame to define frame size')
 		### read single frame to setup imageList
 		self.camera = cv2.VideoCapture(self.file)
-		self.camera.set(cv2.CAP_PROP_BUFFERSIZE,1)
+		self.camera.set(cv2.CAP_PROP_BUFFERSIZE,2)
 		_,frame = self.camera.read()
 		self.tracker.videoFrameSize = frame.shape
 		height,width,_ = frame.shape
@@ -257,7 +257,8 @@ class GUI(tk.Tk):
 		editMenu.add_command(label='Configure IP Address', command = lambda : self.changeIPPopup())
 		editMenu.add_command(label='Feature Option',command=lambda:self.featureOptionPopup())
 		editMenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
-		editMenu.add_command(label='Delete All Recognition Data', command = lambda : self.deleteRecognitionPopup())
+		editMenu.add_command(label='Delete AWS Recognition Data', command = lambda : self.deleteAWSRecognitionPopup())
+		editMenu.add_command(label='Clear Local Recognition Data', command = lambda : self.deleteLocalData())
 		editMenu.add_command(label='Select Region of Interest',command = lambda : self.selectROIPopup())
 
 		menu.add_cascade(label="Edit", menu=editMenu)
@@ -378,7 +379,7 @@ class GUI(tk.Tk):
 			self.file = ip
 		self.camera.release()
 		self.camera = cv2.VideoCapture(self.file)
-		self.camera.set(cv2.CAP_PROP_BUFFERSIZE,1)
+		self.camera.set(cv2.CAP_PROP_BUFFERSIZE,2)
 		flag, frame = self.camera.read()
 		self.videoError = False
 		if flag:
@@ -448,12 +449,18 @@ class GUI(tk.Tk):
 		self.blurFilter=blur
 		logger.info('New blur min zero filter is set to {} by user'.format(blur))
 
-	def deleteRecognitionPopup(self):
-		message = tk.messagebox.askokcancel("Delete All Recognition Data","Are you sure to delete All Recognition Data?")
+	def deleteAWSRecognitionPopup(self):
+		message = tk.messagebox.askokcancel("Delete AWS Recognition Data","Are you sure you want to delete All Recognition Data on AWS Server?")
 		if message:
+			logger.warning('User requested to delete all recognition data on AWS Server')
 			self.deleteRecognition()
-			self.num_face=0
-			self.currentFaceID=0
+
+	def deleteLocalData(self):
+		message = tk.messagebox.askokcancel("Clear All Local Recognition Data",
+											"Are you sure you want to delete All Recognition Data in local database?")
+		if message:
+			self.num_face = 0
+			self.currentFaceID = 0
 			self.faceNamesList = {}
 			self.faceAttributesList = {}
 			self.imageList = []
@@ -463,6 +470,7 @@ class GUI(tk.Tk):
 			self.frame = tkgui.VerticalScrolledFrame(self.outerFrame)
 			self.frame.pack(fill='both', expand=False)
 			self.addImageList(2)
+			self.saveDataToFile()
 			logger.warning('User requested to delete all recognition data in database')
 
 	def deleteRecognition(self):
