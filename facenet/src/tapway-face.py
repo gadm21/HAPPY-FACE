@@ -611,7 +611,6 @@ class GUI(tk.Tk):
 			imgCard = ImageCard()
 			imgCard.fid = fid
 			imgCard.image = cropface
-			imgCard.Rdate = self.faceAttributesList[fid].recognizedTime
 			self.savingImageData[self.num_face] = imgCard
 
 	def AWSRekognition(self,enc,cropface,fid):
@@ -656,7 +655,6 @@ class GUI(tk.Tk):
 			imgCard = ImageCard()
 			imgCard.fid = fid
 			imgCard.image = cropface
-			imgCard.Rdate = self.faceAttributesList[fid].recognizedTime
 			self.savingImageData[self.num_face] = imgCard
 
 		except Exception as e:
@@ -700,7 +698,6 @@ class GUI(tk.Tk):
 		imgCard = ImageCard()
 		imgCard.fid = fid
 		imgCard.image = cropface
-		imgCard.Rdate = self.faceAttributesList[fid].recognizedTime
 		self.savingImageData[self.num_face] = imgCard
 		logger.info('Estimated age and gender of face ID {} using non-cloud solution'.format(fid))
 
@@ -981,18 +978,10 @@ class ImageCard(object):
 	def __init__(self):
 		self.fid = None
 		self.image = None
-		self.Rdate = None
 
 	def __lt__(self, other):
-		if hasattr(other, 'Rdate'):
-			selfDate = datetime.datetime.strptime(self.Rdate, '%H:%M:%S %d-%m-%Y').date()
-			otherDate = datetime.datetime.strptime(other.Rdate, '%H:%M:%S %d-%m-%Y').date()
-			if selfDate>otherDate:
-				return 1
-			elif selfDate<otherDate:
-				return -1
-			else:
-				return 0
+		if hasattr(other, 'fid'):
+			return int(self.fid).__lt__(int(other.fid))
 
 if __name__ == '__main__':
 
