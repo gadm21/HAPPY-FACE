@@ -383,13 +383,14 @@ class GUI(tk.Tk):
 		flag, frame = self.camera.read()
 		self.videoError = False
 		if flag:
-			self.tracker.videoFrameSize = frame.shape
-			self.videoLabel.config(width=frame.shape[1],height=frame.shape[0])
 			height, width, _ = frame.shape
-			self.ROIx1 = 0
-			self.ROIy1 = 0
-			self.ROIx2 = width
-			self.ROIy2 = height
+			if (self.tracker.videoFrameSize != frame.shape):
+				self.tracker.videoFrameSize = frame.shape
+				self.videoLabel.config(width=frame.shape[1],height=frame.shape[0])
+				self.ROIx1 = 0
+				self.ROIy1 = 0
+				self.ROIx2 = width
+				self.ROIy2 = height
 			logger.info('New IP has been set to {} by user and has resolution {} x {}'.format(self.file,width,height))
 		else:
 			logger.error('New IP has been set to {} by user and does not has proper input'.format(self.file))
@@ -984,12 +985,13 @@ class ImageCard(object):
 			return int(self.fid).__lt__(int(other.fid))
 
 if __name__ == '__main__':
-
+	NUM_THREADS = 44
 	with tf.Graph().as_default():
 		gpu_options = tf.GPUOptions(
 			per_process_gpu_memory_fraction=gpu_memory_fraction)
 		logger.info('Starting new tensorflow session with gpu memory fraction {}'.format(gpu_memory_fraction))
 		sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options,
+			intra_op_parallelism_threads=NUM_THREADS,
 			log_device_placement=False))
 		with sess.as_default():
 			pnet, rnet, onet = align.detect_face.create_mtcnn(
