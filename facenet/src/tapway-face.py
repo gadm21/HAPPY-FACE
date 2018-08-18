@@ -225,8 +225,8 @@ class GUI(tk.Tk):
 			logger.info('Loading image cards from /data/imageCard.pickle')
 			with open('data/imageCard.pickle', 'rb') as handle:
 				self.savingImageData = pickle.load(handle)
-			for key in self.savingImageData:
-				card = self.savingImageData[key]
+			sortedImg = [(k, self.savingImageData[k]) for k in sorted(self.savingImageData, key=self.savingImageData.__getitem__)]
+			for key, card in sortedImg:
 				self.addFaceToImageList(card.fid, card.image)
 
 			logger.info('Loaded json and pickle data from files in /data')
@@ -611,6 +611,7 @@ class GUI(tk.Tk):
 			imgCard = ImageCard()
 			imgCard.fid = fid
 			imgCard.image = cropface
+			imgCard.Rdate = self.faceAttributesList[fid].recognizedTime
 			self.savingImageData[self.num_face] = imgCard
 
 	def AWSRekognition(self,enc,cropface,fid):
@@ -655,6 +656,7 @@ class GUI(tk.Tk):
 			imgCard = ImageCard()
 			imgCard.fid = fid
 			imgCard.image = cropface
+			imgCard.Rdate = self.faceAttributesList[fid].recognizedTime
 			self.savingImageData[self.num_face] = imgCard
 
 		except Exception as e:
@@ -698,6 +700,7 @@ class GUI(tk.Tk):
 		imgCard = ImageCard()
 		imgCard.fid = fid
 		imgCard.image = cropface
+		imgCard.Rdate = self.faceAttributesList[fid].recognizedTime
 		self.savingImageData[self.num_face] = imgCard
 		logger.info('Estimated age and gender of face ID {} using non-cloud solution'.format(fid))
 
@@ -862,7 +865,8 @@ class GUI(tk.Tk):
 		[link: https://www.cs.cmu.edu/~htong/pdf/ICME04_tong.pdf]
 		'''
 		gray=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-
+		# color = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+		# im = Image.fromarray(color).convert('F')
 		Emax1, Emax2, Emax3 = blurDetector.algorithm(gray)
 		per, BlurExtent = blurDetector.ruleset(Emax1, Emax2, Emax3, thresh)
 
@@ -977,6 +981,18 @@ class ImageCard(object):
 	def __init__(self):
 		self.fid = None
 		self.image = None
+		self.Rdate = None
+
+	def __lt__(self, other):
+		if hasattr(other, 'Rdate'):
+			selfDate = datetime.datetime.strptime(self.Rdate, '%H:%M:%S %d-%m-%Y').date()
+			otherDate = datetime.datetime.strptime(other.Rdate, '%H:%M:%S %d-%m-%Y').date()
+			if selfDate>otherDate:
+				return 1
+			elif selfDate<otherDate:
+				return -1
+			else:
+				return 0
 
 if __name__ == '__main__':
 
