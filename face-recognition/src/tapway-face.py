@@ -504,6 +504,7 @@ class GUI(tk.Tk):
 		self.pitchFilter = config.getfloat('default','pitchFilter')
 		self.yawFilter = config.getfloat('default','yawFilter') 
 		self.blurFilter = config.getfloat('default','blurFilter')
+		self.detectionThread = config.getboolean('default','detectionThread')
 
 	def addImageList(self,row):
 		photo = cv2.imread('gui/icon.jpg')
@@ -883,7 +884,7 @@ class GUI(tk.Tk):
 
 		if (self.frame_count%self.frame_interval) == 0:
 			# t1 = time.time()
-			bounding_boxes,points = align.detect_face.detect_face(roi, minsize, pnet, rnet, onet, threshold, factor,use_thread=False)
+			bounding_boxes,points = align.detect_face.detect_face(roi, minsize, pnet, rnet, onet, threshold, factor,use_thread=self.detectionThread)
 			# print(time.time()-t1,'face detect elapsed')
 			for (x1, y1, x2, y2, acc) in bounding_boxes:
 				### add back cut out region
