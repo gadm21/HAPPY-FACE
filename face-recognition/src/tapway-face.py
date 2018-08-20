@@ -883,8 +883,8 @@ class GUI(tk.Tk):
 
 		if (self.frame_count%self.frame_interval) == 0:
 			# t1 = time.time()
-			bounding_boxes,points = align.detect_face.detect_face(roi, minsize, pnet, rnet, onet, threshold, factor)
-			# print(time.time()-t1,'elapsed')
+			bounding_boxes,points = align.detect_face.detect_face(roi, minsize, pnet, rnet, onet, threshold, factor,use_thread=False)
+			# print(time.time()-t1,'face detect elapsed')
 			for (x1, y1, x2, y2, acc) in bounding_boxes:
 				### add back cut out region
 				x1+=self.ROIx1
@@ -985,13 +985,13 @@ class ImageCard(object):
 			return int(self.fid).__lt__(int(other.fid))
 
 if __name__ == '__main__':
-	NUM_THREADS = 44
+	# NUM_THREADS = 44
 	with tf.Graph().as_default():
 		gpu_options = tf.GPUOptions(
 			per_process_gpu_memory_fraction=gpu_memory_fraction)
 		logger.info('Starting new tensorflow session with gpu memory fraction {}'.format(gpu_memory_fraction))
 		sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options,
-			intra_op_parallelism_threads=NUM_THREADS,
+			# intra_op_parallelism_threads=NUM_THREADS,
 			log_device_placement=False))
 		with sess.as_default():
 			pnet, rnet, onet = align.detect_face.create_mtcnn(
