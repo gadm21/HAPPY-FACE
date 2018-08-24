@@ -8,6 +8,7 @@ import pickle
 
 import tensorflow as tf
 import os
+import traceback
 import align.detect_face
 
 import cv2
@@ -49,12 +50,20 @@ logging.logProcesses= 0
 logging._srcfile = None
 logger = logging.getLogger('tapway-face')
 
+def exc_handler(type,value,tb):
+	tbList = traceback.format_tb(tb)
+	tbString = ''.join(tbList)
+	logger.critical(
+		'Caught exception {} within program: {} \nFull Traceback:\n{}\n'.format(str(value.__class__.__name__), str(value), tbString))
+
+sys.excepthook = exc_handler
+
 def isInt(s):
-    try:
-        int(s)
-        return True
-    except ValueError:
-        return False
+	try:
+		int(s)
+		return True
+	except ValueError:
+		return False
 
 def saveImage(saveImgPath,cropFace,numFace):
 	if not os.path.isdir(saveImgPath):
@@ -177,14 +186,21 @@ class GUI(tk.Tk):
 
 		logger.info('Loading age and gender estimation caffe models')
 		self.ageNet = cv2.dnn.readNetFromCaffe(
-									"models/age/deploy.prototxt", 
-									"models/age/age_net.caffemodel")
+			"models/age/deploy.prototxt",
+			"models/age/age_net.caffemodel")
 
 		self.genderNet = cv2.dnn.readNetFromCaffe(
-									"models/gender/deploy.prototxt", 
-									"models/gender/gender_net.caffemodel")
+			"models/gender/deploy.prototxt",
+			"models/gender/gender_net.caffemodel")
 
-		logger.info('Initialization and loading completed')		
+		logger.info('Initialization and loading completed')
+
+	def report_callback_exception(self, exc, val, tb):
+		if str(val) != "can't invoke \"winfo\" command: application has been destroyed":
+			tbList = traceback.format_tb(tb)
+			tbString = ''.join(tbList)
+			logger.critical(
+				'Caught exception {} within tkinter thread: {} \nFull Traceback:\n{}\n'.format(str(val.__class__.__name__),str(val),tbString))
 
 	def _quit(self):
 		try:
@@ -244,12 +260,12 @@ class GUI(tk.Tk):
 
 	def createMenu(self):
 		menu = tk.Menu(self.winfo_toplevel())
-		 
+
 		fileMenu = tk.Menu(menu)
 		fileMenu.add_command(label='New')
-		 
+
 		menu.add_cascade(label='File', menu=fileMenu)
-		 
+
 		self.winfo_toplevel().config(menu=menu)
 
 		editMenu = tk.Menu(menu)
@@ -502,7 +518,7 @@ class GUI(tk.Tk):
 		self.saveImgPath = config.get('default','imagePath')
 		self.frame_interval = config.getint('default','frameInterval')
 		self.pitchFilter = config.getfloat('default','pitchFilter')
-		self.yawFilter = config.getfloat('default','yawFilter') 
+		self.yawFilter = config.getfloat('default','yawFilter')
 		self.blurFilter = config.getfloat('default','blurFilter')
 		self.detectionThread = config.getboolean('default','detectionThread')
 
@@ -644,7 +660,7 @@ class GUI(tk.Tk):
 				self.faceAttributesList[fid].awsID = awsID
 				self.faceAttributesList[fid].similarity = res['FaceMatches'][0]['Similarity']
 				self.faceAttributesList[fid].recognizedTime = str(datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
-				
+
 				# self.faceAttributesList[fid].gender = faceAnalysis['FaceDetails'][0]['Gender']['Value']
 				# self.faceAttributesList[fid].genderConfidence = faceAnalysis['FaceDetails'][0]['Gender']['Confidence']
 
@@ -746,10 +762,10 @@ class GUI(tk.Tk):
 			textLoc = (textX, textY)
 
 			cv2.rectangle(imgDisplay, (t_x, t_y),
-									(t_x + t_w , t_y + t_h),
-									rectColor ,2)
+						  (t_x + t_w , t_y + t_h),
+						  rectColor ,2)
 
-			cv2.putText(imgDisplay, text, textLoc, 
+			cv2.putText(imgDisplay, text, textLoc,
 						cv2.FONT_HERSHEY_SIMPLEX,
 						0.5, (255, 255, 255), 2)
 
@@ -849,7 +865,7 @@ class GUI(tk.Tk):
 		1) Same width and height
 		2) Three color channel
 		3) Minimum size 64x64
-		''' 
+		'''
 		resizeFaceImg = resizeImage(64,64,faceImg)
 
 		roll = self.headPoseEstimator.return_roll(resizeFaceImg)
@@ -992,12 +1008,12 @@ if __name__ == '__main__':
 			per_process_gpu_memory_fraction=gpu_memory_fraction)
 		logger.info('Starting new tensorflow session with gpu memory fraction {}'.format(gpu_memory_fraction))
 		sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options,
-			# intra_op_parallelism_threads=NUM_THREADS,
-			log_device_placement=False))
+												# intra_op_parallelism_threads=NUM_THREADS,
+												log_device_placement=False))
 		with sess.as_default():
 			pnet, rnet, onet = align.detect_face.create_mtcnn(
 				sess, None)
-
+			
 		app = GUI()
 		app.showFrame()
 		app.mainloop()
