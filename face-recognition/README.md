@@ -15,6 +15,12 @@ then the cropped image will save in face_img folder.
 Refer here for more details:
 https://github.com/davidsandberg/facenet
 
+# Speed Improvement (CPU)
+Compile tensorflow with AVX2 support  
+You can built own tensorflow source code wheel file also. (take some time)  
+There are online wheel file.  
+[link: https://github.com/lakshayg/tensorflow-build]
+
 # Face Detection
 MTCNN  
 [link: https://github.com/davidsandberg/facenet/blob/master/src/align/detect_face.py]
@@ -38,6 +44,10 @@ Paper:
 # Head Pose Estimation
 DeepGaze  
 [link: https://github.com/mpatacchiola/deepgaze/blob/master/examples/ex_cnn_head_pose_estimation_images/ex_cnn_head_pose_estimation_images.py]  
+
+# Age & Gender Estimator
+Use the pretrained caffe model for agenet and gendernet  
+[link: https://talhassner.github.io/home/publication/2015_CVPR]
 
 # GUI
 Tkinter  
