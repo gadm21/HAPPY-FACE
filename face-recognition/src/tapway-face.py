@@ -26,6 +26,7 @@ import gui.tkgui as tkgui
 import tkinter as tk
 import tkinter.ttk as ttk
 from tkinter import messagebox
+from tkinter import filedialog
 from PIL import ImageTk,Image
 
 import aws.rekognition as aws
@@ -128,6 +129,9 @@ def resizeImage(sizeX,sizeY,img):
 	scaleX = sizeX/width
 	resizeImg = cv2.resize(img,(0,0),fx=scaleX,fy=scaleY)
 	return resizeImg
+
+def do_nothing():
+	pass
 
 ### Note: The three method above will move to other file in later ###
 class GUI(tk.Tk):
@@ -263,6 +267,7 @@ class GUI(tk.Tk):
 
 		fileMenu = tk.Menu(menu)
 		fileMenu.add_command(label='New')
+		fileMenu.add_command(label='Upload an IC image', command=lambda: self.uploadICImage())
 
 		menu.add_cascade(label='File', menu=fileMenu)
 
@@ -278,6 +283,100 @@ class GUI(tk.Tk):
 		editMenu.add_command(label='Select Region of Interest',command = lambda : self.selectROIPopup())
 
 		menu.add_cascade(label="Edit", menu=editMenu)
+
+	def uploadICImage(self):
+		def operation():
+			message = tk.messagebox.showinfo('Requirement', 'Please select an photo with resolution of at least 80*80.')
+			logger.info('User requested to upload an IC photo')
+			fpath = filedialog.askopenfilename(initialdir=os.getcwd(), title="Select IC Photo",
+													   filetypes=[("Image files", "*.jpg *.png")])
+			if fpath:
+				faceimg = cv2.imread(fpath)
+				height, width, _ = faceimg.shape
+				if height<80 or width<80:
+					tk.messagebox.showerror('Bad Photo', 'The selected photo does not meet minimum resolution (80*80)!')
+					logger.warning('The selected photo does not meet minimum resolution (80*80)!')
+					return
+				enc = cv2.imencode('.png', faceimg)[1].tostring()
+				try:
+					res = aws.search_faces(enc)
+					if len(res['FaceMatches']) == 0:
+						logger.info('Face of IC image does not match any faces in AWS')
+					else:
+						faceList = []
+						for faces in res['FaceMatches']:
+							if faces['Similarity'] >= 70:
+								faceList.append(faces['Face']['FaceId'])
+
+						if len(faceList) > 0:
+							msg = tk.messagebox.askokcancel('AWS ID Deletion','The following face IDs will be deleted:\n{}'.format(faceList))
+							if msg:
+								aws.delete_faces(faceList)
+								logger.info('The following face IDs matched the face of IC image and are deleted: {}'.format(faceList))
+							else:
+								logger.warning('User refused to delete ID that matches face of IC image. Operation cancelled')
+								return
+
+					res = aws.index_faces(enc)
+					awsID = res['FaceRecords'][0]['Face']['FaceId']
+
+					logger.info('Face in IC photo is successfully registered to ID {}'.format(awsID))
+
+					cv2image = resizeImage(150, 150, faceimg)
+					cv2image = cv2.cvtColor(cv2image, cv2.COLOR_BGR2RGBA)
+
+					img = Image.fromarray(cv2image)
+					imgtk = ImageTk.PhotoImage(image=img)
+
+					win = tk.Toplevel()
+					win.resizable(width=False, height=False)
+					win.wm_title("Register IC Face")
+					win.protocol("WM_DELETE_WINDOW", do_nothing)
+
+					frame = tk.ttk.Frame(win, border=2, relief=tk.GROOVE)
+					frame.pack(fill=tk.X, padx=5, pady=5)
+
+					imgLabel = tk.Label(frame, image=imgtk, relief=tk.GROOVE)
+					imgLabel.imgtk = imgtk
+					imgLabel.pack(fill=tk.X)
+
+					nameFrame = tk.ttk.Frame(frame)
+					nameFrame.pack(fill=tk.X, pady=5)
+
+					nameLabel = tk.ttk.Label(nameFrame, text='{0:15}\t:'.format('Name'))
+					nameLabel.pack(side=tk.LEFT, padx=5)
+
+					nameEntry = tk.ttk.Entry(nameFrame)
+					name = awsID
+					nameEntry.insert(0, name)
+					nameEntry.selection_range(0, tk.END)
+					nameEntry.pack(side=tk.LEFT)
+					submit = tk.ttk.Button(frame, text='Submit', width=10,
+										   command=lambda: self.submit(awsID, nameEntry.get(),
+																	   win) or tk.messagebox.showinfo(
+											   'Operation Successful',
+											   'Face in IC photo is registered to ID {}'.format(awsID)))
+					submit.pack(pady=5)
+					win.bind('<Return>', lambda _: self.submit(awsID, nameEntry.get(), win) or tk.messagebox.showinfo(
+						'Operation Successful',
+						'Face in IC photo is registered to ID {}'.format(awsID)))
+					nameEntry.focus()
+
+				except Exception as e:
+					# aws rekognition will have error if does not detect any face
+					if type(e).__name__ == 'InvalidParameterException':
+						print('aws exception')
+						tk.messagebox.showerror('Bad Photo', 'Unable to detect face in the selected photo!')
+						logger.warning('AWS Exception, no face detected in the IC image uploaded, upload IC photo failed')
+					else:
+						tk.messagebox.showerror('Unknown Error', 'Something bad happened! Please refer to log files')
+						logger.error('Upload IC photo failed')
+						logger.error(e)
+
+			else:
+				logger.info('User cancelled upload IC image operation')
+		t2 = threading.Thread(target=operation)
+		t2.start()
 
 	def selectROIPopup(self):
 		flag,frame=self.camera.read()
@@ -445,7 +544,7 @@ class GUI(tk.Tk):
 		yawScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.yawFilter, command=lambda _:self.updateYaw(yaw=yawScale.get()))
 		yawScale.set(self.yawFilter)
 		yawScale.pack()
-		label3 = ttk.Label(newPopup, text="Blur Min Zero: ", font=("Helvetica",10))
+		label3 = ttk.Label(newPopup, text="Blur Filter: ", font=("Helvetica",10))
 		label3.pack(pady=10)
 		value3 = ttk.Label(newPopup, textvariable=self.blurFilter)
 		value3.pack()
@@ -464,7 +563,7 @@ class GUI(tk.Tk):
 
 	def updateBlur(self, blur):
 		self.blurFilter=blur
-		logger.info('New blur min zero filter is set to {} by user'.format(blur))
+		logger.info('New blur filter is set to {} by user'.format(blur))
 
 	def deleteAWSRecognitionPopup(self):
 		message = tk.messagebox.askokcancel("Delete AWS Recognition Data","Are you sure you want to delete All Recognition Data on AWS Server?")
@@ -491,19 +590,7 @@ class GUI(tk.Tk):
 			logger.warning('User requested to delete all recognition data in database')
 
 	def deleteRecognition(self):
-		res = aws.list_faces()
-		faceList = []
-
-		for face in res['Faces']:
-			faceList.append(face['FaceId'])
-
-		if len(faceList)>0:
-			aws.delete_faces(faceList)
-			message = tk.messagebox.showinfo('Info','Delete Successfully')
-			logger.info('All recognition data on AWS is deleted successfully')
-		else:
-			message = tk.messagebox.showinfo('Info', 'No AWS recognition data to be deleted')
-			logger.info('No recognition data on AWS to be deleted')
+		aws.clear_collection()
 
 	def readConfigFile(self):
 		config = ConfigParser()
@@ -650,7 +737,7 @@ class GUI(tk.Tk):
 				# self.faceAttributesList[fid].ageRangeHigh = faceDetail['AgeRange']['High']
 
 				self.addFaceToImageList(fid,cropface)
-				logger.info('New Face ID {} from AWS'.format(awsID))
+				logger.info('New Face ID {} from AWS assigned to face number {}'.format(awsID,fid))
 			else:
 				awsID = res['FaceMatches'][0]['Face']['FaceId']
 
@@ -668,7 +755,7 @@ class GUI(tk.Tk):
 				# self.faceAttributesList[fid].ageRangeHigh = faceAnalysis['FaceDetails'][0]['AgeRange']['High']
 
 				self.addFaceToImageList(fid,cropface)
-				logger.info('Face ID {} matched'.format(awsID))
+				logger.info('Face ID {} matched in face number {}'.format(awsID,fid))
 
 			imgCard = ImageCard()
 			imgCard.fid = fid
@@ -679,7 +766,7 @@ class GUI(tk.Tk):
 			# aws rekognition will have error if does not detect any face
 			if type(e).__name__ == 'InvalidParameterException':
 				print('aws exception')
-				logger.warning('AWS Exception, no face detected')
+				logger.warning('AWS Exception, no face detected in image number {}'.format(fid))
 				# cv2.imshow('name',cropface)
 				### delete the face, since aws cant detect it as a face
 				self.tracker.appendDeleteFid(fid)
@@ -825,11 +912,14 @@ class GUI(tk.Tk):
 		pitchFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Pitch(degree)',faceAttr.pitch))
 		pitchFrame.pack(fill=tk.X,padx=5)
 
-		perFrame = tk.ttk.Label(frame, text='{0:15}\t: {1}'.format('Blur Per Value', faceAttr.blurPer))
-		perFrame.pack(fill=tk.X, padx=5)
+		blurFrame = tk.ttk.Label(frame, text='{0:15}\t: {1}'.format('Sharpness Value', faceAttr.sharpnessValue))
+		blurFrame.pack(fill=tk.X, padx=5)
 
-		blurExtentFrame = tk.ttk.Label(frame, text='{0:15}\t: {1}'.format('Blur Extent', faceAttr.blurExtent))
-		blurExtentFrame.pack(fill=tk.X, padx=5)
+		# perFrame = tk.ttk.Label(frame, text='{0:15}\t: {1}'.format('Blur Per Value', faceAttr.blurPer))
+		# perFrame.pack(fill=tk.X, padx=5)
+		#
+		# blurExtentFrame = tk.ttk.Label(frame, text='{0:15}\t: {1}'.format('Blur Extent', faceAttr.blurExtent))
+		# blurExtentFrame.pack(fill=tk.X, padx=5)
 
 		genderFrame = tk.ttk.Label(frame,text='{0:15}\t: {1}'.format('Gender',faceAttr.gender))
 		genderFrame.pack(fill=tk.X,padx=5)
@@ -853,9 +943,10 @@ class GUI(tk.Tk):
 		nameEntry.focus()
 
 	def submit(self,awsID,name,win):
-		if not awsID == name:
+		if not awsID == name and len(name) != 0:
 			self.faceNamesList[awsID] = name
 			logger.info('Face with ID {} has been set to the name {}'.format(awsID,name))
+
 		win.destroy()
 
 	def getHeadPoseEstimation(self,faceImg):
@@ -889,6 +980,11 @@ class GUI(tk.Tk):
 
 		return per, BlurExtent
 
+	def detectBlurLaplacian(self, img):
+		img = resizeImage(100,100,img)
+		image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+		return cv2.Laplacian(image, cv2.CV_64F).var()
+
 	def detectFace(self,imgDisplay, roi):
 		### Avoid use imgDisplay = frame
 		frame = imgDisplay.copy()
@@ -920,22 +1016,27 @@ class GUI(tk.Tk):
 
 					faceImg = cropFace(frame,(x1,y1,x2,y2))
 
-					per, blurExtent = self.detectBlur(faceImg)
+					# per, blurExtent = self.detectBlur(faceImg)
+
+					laplacian_val = self.detectBlurLaplacian(faceImg)
 
 					blur = True
 
-					if per >= (self.blurFilter/100):
+					# if per >= (self.blurFilter/100):
+					# 	blur = False
+
+					if laplacian_val >= self.blurFilter:
 						blur = False
 
-					faceAttr.blurPer = float(per)
-					faceAttr.blurExtent = float(blurExtent)
+					faceAttr.sharpnessValue = float(laplacian_val)
 
 					roll,pitch,yaw = self.getHeadPoseEstimation(faceImg)
 
-					logger.info('Attributes of detected face number {} are per: {}, blur extent:{}, yaw:{}, pitch:{}'.format(self.num_face,per,blurExtent,yaw,pitch))
+					logger.info('Attributes of detected face number {} are shaprness:{}, yaw:{}, pitch:{}'.format(self.num_face,laplacian_val,yaw,pitch))
 
 					if blur:
-						logger.warning('Blur image of face number {} is filtered as it per value ({}) is less than blur min zero filter {}'.format(self.num_face,per,(self.blurFilter/100)))
+						logger.warning('Blur image of face number {} is filter as it laplacian variance ({}) is less than threshold {}'.format(self.num_face,laplacian_val,self.blurFilter))
+						# logger.warning('Blur image of face number {} is filtered as it per value ({}) is less than blur min zero filter {}'.format(self.num_face,per,(self.blurFilter/100)))
 						saveImage('blur_img',faceImg,self.num_face)
 						continue
 
@@ -956,7 +1057,7 @@ class GUI(tk.Tk):
 					self.faceAttributesList[currentFaceID] = faceAttr
 
 					self.tracker.createTrack(imgDisplay,(x1,y1,x2,y2),currentFaceID)
-					logger.info('Tracking new face {} in ({},{}), ({},{})'.format(currentFaceID,x1,y1,x2,y2))
+					logger.info('Tracking new face number {} in ({},{}), ({},{})'.format(currentFaceID,x1,y1,x2,y2))
 
 					cropface = cropFace(frame,(x1,y1,x2,y2),crop_factor=self.crop_factor,minHeight=80,minWidth=80)
 
@@ -982,8 +1083,7 @@ class FaceAttribute(object):
 		self.yaw = None
 		self.roll = None
 		self.pitch = None
-		self.blurPer = None
-		self.blurExtent = None
+		self.sharpnessValue = None
 		self.similarity = 'New Face'
 		self.gender = None
 		self.genderConfidence = None
@@ -1013,7 +1113,7 @@ if __name__ == '__main__':
 		with sess.as_default():
 			pnet, rnet, onet = align.detect_face.create_mtcnn(
 				sess, None)
-			
+
 		app = GUI()
 		app.showFrame()
 		app.mainloop()
