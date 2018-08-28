@@ -145,6 +145,8 @@ class GUI(tk.Tk):
 
 		self.readConfigFile()
 
+		self.AWSthreshold = 70
+
 		self.frame_count = 0
 
 		self.tracker = track.Tracker()
@@ -721,41 +723,67 @@ class GUI(tk.Tk):
 	def AWSRekognition(self,enc,cropface,fid):
 		try:
 			res  = aws.search_faces(enc)
-			if len(res['FaceMatches']) == 0:
-				res = aws.index_faces(enc)
-				awsID = res['FaceRecords'][0]['Face']['FaceId']
-				faceDetail = res['FaceRecords'][0]['FaceDetail']
+			# if got id returned
+			if len(res['FaceMatches'])>0:
+				# see got above 70 or not
+				if res['FaceMatches'][0]['Similarity']>=self.AWSthreshold:
+					awsID = res['FaceMatches'][0]['Face']['FaceId']
 
-				self.tracker.faceID[fid] = awsID
-				self.faceAttributesList[fid].awsID = awsID
-				self.faceAttributesList[fid].recognizedTime = str(datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
+					self.tracker.faceID[fid] = awsID
+					self.faceAttributesList[fid].awsID = awsID
+					self.faceAttributesList[fid].similarity = res['FaceMatches'][0]['Similarity']
+					self.faceAttributesList[fid].recognizedTime = str(
+						datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 
-				# self.faceAttributesList[fid].gender = faceDetail['Gender']['Value']
-				# self.faceAttributesList[fid].genderConfidence = faceDetail['Gender']['Confidence']
+					self.addFaceToImageList(fid, cropface)
+					logger.info('Face ID {} matched in face number {}'.format(awsID, fid))
 
-				# self.faceAttributesList[fid].ageRangeLow = faceDetail['AgeRange']['Low']
-				# self.faceAttributesList[fid].ageRangeHigh = faceDetail['AgeRange']['High']
+				else:
+					# no above 70, check if qualify to create new id
+					if abs(self.faceAttributesList[fid].yaw) <= self.yawFilter/2 and abs(self.faceAttributesList[fid].pitch) <= self.pitchFilter/2 and self.faceAttributesList[fid].sharpnessValue >= self.blurFilter+30:
+						res = aws.index_faces(enc)
+						awsID = res['FaceRecords'][0]['Face']['FaceId']
+						self.tracker.faceID[fid] = awsID
+						self.faceAttributesList[fid].awsID = awsID
+						self.faceAttributesList[fid].recognizedTime = str(
+							datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 
-				self.addFaceToImageList(fid,cropface)
-				logger.info('New Face ID {} from AWS assigned to face number {}'.format(awsID,fid))
+						self.addFaceToImageList(fid, cropface)
+						logger.info('New Face ID {} from AWS assigned to face number {}'.format(awsID, fid))
+
+					# not qualify to create new id, take face id with 50-70 similarity
+					else:
+						awsID = res['FaceMatches'][0]['Face']['FaceId']
+
+						self.tracker.faceID[fid] = awsID
+						self.faceAttributesList[fid].awsID = awsID
+						self.faceAttributesList[fid].similarity = res['FaceMatches'][0]['Similarity']
+						self.faceAttributesList[fid].recognizedTime = str(
+							datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
+
+						self.addFaceToImageList(fid, cropface)
+						logger.warning('Face number {} doesn\'t meet requirements for creating new AWS ID and is using AWS ID {} with similarity {}'.format(fid,awsID,res['FaceMatches'][0]['Similarity']))
+
+			# if no id returned
 			else:
-				awsID = res['FaceMatches'][0]['Face']['FaceId']
+				if abs(self.faceAttributesList[fid].yaw) <= self.yawFilter / 2 and abs(
+						self.faceAttributesList[fid].pitch) <= self.pitchFilter / 2 and self.faceAttributesList[
+					fid].sharpnessValue >= self.blurFilter + 30:
 
-				# faceAnalysis = aws.detect_faces(enc)
+					res = aws.index_faces(enc)
+					awsID = res['FaceRecords'][0]['Face']['FaceId']
+					self.tracker.faceID[fid] = awsID
+					self.faceAttributesList[fid].awsID = awsID
+					self.faceAttributesList[fid].recognizedTime = str(
+						datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 
-				self.tracker.faceID[fid] = awsID
-				self.faceAttributesList[fid].awsID = awsID
-				self.faceAttributesList[fid].similarity = res['FaceMatches'][0]['Similarity']
-				self.faceAttributesList[fid].recognizedTime = str(datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
-
-				# self.faceAttributesList[fid].gender = faceAnalysis['FaceDetails'][0]['Gender']['Value']
-				# self.faceAttributesList[fid].genderConfidence = faceAnalysis['FaceDetails'][0]['Gender']['Confidence']
-
-				# self.faceAttributesList[fid].ageRangeLow = faceAnalysis['FaceDetails'][0]['AgeRange']['Low']
-				# self.faceAttributesList[fid].ageRangeHigh = faceAnalysis['FaceDetails'][0]['AgeRange']['High']
-
-				self.addFaceToImageList(fid,cropface)
-				logger.info('Face ID {} matched in face number {}'.format(awsID,fid))
+					self.addFaceToImageList(fid, cropface)
+					logger.info('New Face ID {} from AWS assigned to face number {}'.format(awsID, fid))
+				else:
+					logger.warning('Face number {} doesn\'t meet requirements for creating new AWS ID and there is no other AWS ID returned, dropping tracker'.format(fid))
+					self.tracker.appendDeleteFid(fid)
+					self.faceAttributesList.pop(fid, None)
+					return
 
 			imgCard = ImageCard()
 			imgCard.fid = fid
@@ -769,11 +797,10 @@ class GUI(tk.Tk):
 				logger.warning('AWS Exception, no face detected in image number {}'.format(fid))
 				# cv2.imshow('name',cropface)
 				### delete the face, since aws cant detect it as a face
-				self.tracker.appendDeleteFid(fid)
-				self.faceAttributesList.pop(fid,None)
 			else:
 				logger.error(e)
-			pass
+			self.tracker.appendDeleteFid(fid)
+			self.faceAttributesList.pop(fid, None)
 
 	def ageGenderEstimation(self,cropface,fid):
 		t1 = time.time()

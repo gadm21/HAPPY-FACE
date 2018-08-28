@@ -27,7 +27,7 @@ def search_faces(cropface):
 			# 	'Name':'bidentrump.jpg'
 			# }
 		},
-		FaceMatchThreshold=0,
+		FaceMatchThreshold=50,
 		MaxFaces=5)
 	return response
 
