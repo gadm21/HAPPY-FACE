@@ -11,8 +11,8 @@ timestr = time.time()
 
 #setting path of folder with input images,
 #can be configured for your own path/folder
-mypath='/home/tapway-office/darkflow-master/frames-car'
-source='/home/tapway-office/darkflow-master/frames-idham'
+mypath='C:/Users/cheeh/Documents/TrainingData/predicted'
+source='C:/Users/cheeh/Documents/TrainingData/raw-images'
 #loading multiple frames into tiny-yolo-voc model, model can be configured
 options = {"model": "cfg/tiny-yolo-voc.cfg",
             "load": "tiny-yolo-voc.weights",

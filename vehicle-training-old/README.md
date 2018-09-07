@@ -204,7 +204,7 @@ Install with pip globally
  You can  start capture frames from live feed or any url using the script. To do just that, navigate to your darkflow folder
  and type 
  
- `python framecapture.py`
+ `python captureframe.py`
  
  ## Processing saved frames to darkflow
  
