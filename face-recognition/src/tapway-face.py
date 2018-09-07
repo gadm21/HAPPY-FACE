@@ -280,6 +280,7 @@ class GUI(tk.Tk):
 		editMenu.add_command(label='Configure IP Address', command = lambda : self.changeIPPopup())
 		editMenu.add_command(label='Feature Option',command=lambda:self.featureOptionPopup())
 		editMenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
+		editMenu.add_command(label="Edit Filter Parameters for ID Creation", command = lambda :self.filterIDParameterPopup())
 		editMenu.add_command(label='Delete AWS Recognition Data', command = lambda : self.deleteAWSRecognitionPopup())
 		editMenu.add_command(label='Clear Local Recognition Data', command = lambda : self.deleteLocalData())
 		editMenu.add_command(label='Select Region of Interest',command = lambda : self.selectROIPopup())
@@ -381,6 +382,7 @@ class GUI(tk.Tk):
 		t2.start()
 
 	def selectROIPopup(self):
+		logger.info('User is selecting ROI')
 		flag,frame=self.camera.read()
 		if flag ==True:
 			self.videoLabel.update()
@@ -550,7 +552,7 @@ class GUI(tk.Tk):
 		label3.pack(pady=10)
 		value3 = ttk.Label(newPopup, textvariable=self.blurFilter)
 		value3.pack()
-		blurScale = ttk.Scale(newPopup, from_=0, to=100, orient=tk.HORIZONTAL, variable=self.blurFilter, command=lambda _:self.updateBlur(blur=blurScale.get()))
+		blurScale = ttk.Scale(newPopup, from_=0, to=200, orient=tk.HORIZONTAL, variable=self.blurFilter, command=lambda _:self.updateBlur(blur=blurScale.get()))
 		blurScale.set(self.blurFilter)
 		blurScale.pack()
 		newPopup.focus()
@@ -567,6 +569,46 @@ class GUI(tk.Tk):
 		self.blurFilter=blur
 		logger.info('New blur filter is set to {} by user'.format(blur))
 
+	def filterIDParameterPopup(self):
+		newPopup = tk.Toplevel()
+		newPopup.resizable(width=False,height=False)
+		newPopup.wm_title("Filter Parameter For ID Creation")
+		newPopup.geometry("300x300")
+		label = ttk.Label(newPopup,text="Pitch Angle For ID Creation: ", font=("Helvetica",10))
+		label.pack(pady=10)
+		value = ttk.Label(newPopup,textvariable=self.pitchFilterID)
+		value.pack()
+		pitchScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.pitchFilterID, command=lambda _:self.updatePitchID(pitch=pitchScale.get()))
+		pitchScale.set(self.pitchFilterID)
+		pitchScale.pack()
+		label2 = ttk.Label(newPopup, text="Yaw Angle For ID Creation: ", font=("Helvetica",10))
+		label2.pack(pady=10)
+		value2 = ttk.Label(newPopup, textvariable=self.yawFilterID)
+		value2.pack()
+		yawScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.yawFilterID, command=lambda _:self.updateYawID(yaw=yawScale.get()))
+		yawScale.set(self.yawFilterID)
+		yawScale.pack()
+		label3 = ttk.Label(newPopup, text="Blur Filter For ID Creation: ", font=("Helvetica",10))
+		label3.pack(pady=10)
+		value3 = ttk.Label(newPopup, textvariable=self.blurFilterID)
+		value3.pack()
+		blurScale = ttk.Scale(newPopup, from_=0, to=200, orient=tk.HORIZONTAL, variable=self.blurFilterID, command=lambda _:self.updateBlurID(blur=blurScale.get()))
+		blurScale.set(self.blurFilterID)
+		blurScale.pack()
+		newPopup.focus()
+
+	def updatePitchID(self, pitch):
+		self.pitchFilterID=pitch
+		logger.info('New pitch filter value for ID Creation is set to {} by user'.format(pitch))
+
+	def updateYawID(self, yaw):
+		self.yawFilterID=yaw
+		logger.info('New yaw filter value for ID Creation is set to {} by user'.format(yaw))
+
+	def updateBlurID(self, blur):
+		self.blurFilterID=blur
+		logger.info('New blur filter for ID Creation is set to {} by user'.format(blur))
+
 	def deleteAWSRecognitionPopup(self):
 		message = tk.messagebox.askokcancel("Delete AWS Recognition Data","Are you sure you want to delete All Recognition Data on AWS Server?")
 		if message:
@@ -577,19 +619,23 @@ class GUI(tk.Tk):
 		message = tk.messagebox.askokcancel("Clear All Local Recognition Data",
 											"Are you sure you want to delete All Recognition Data in local database?")
 		if message:
+			logger.warning('User requested to delete all recognition data in database')
 			self.num_face = 0
 			self.currentFaceID = 0
 			self.faceNamesList = {}
 			self.faceAttributesList = {}
 			self.imageList = []
 			self.savingImageData = {}
-			self.tracker.deleteAll()
+			self.tracker = track.Tracker()
 			self.frame.destroy()
+			flag,frame = self.camera.read()
+			assert flag == True
+			self.tracker.videoFrameSize = frame.shape
 			self.frame = tkgui.VerticalScrolledFrame(self.outerFrame)
 			self.frame.pack(fill='both', expand=False)
 			self.addImageList(2)
 			self.saveDataToFile()
-			logger.warning('User requested to delete all recognition data in database')
+			logger.info('Local data deletion completed')
 
 	def deleteRecognition(self):
 		aws.clear_collection()
@@ -609,6 +655,9 @@ class GUI(tk.Tk):
 		self.pitchFilter = config.getfloat('default','pitchFilter')
 		self.yawFilter = config.getfloat('default','yawFilter')
 		self.blurFilter = config.getfloat('default','blurFilter')
+		self.pitchFilterID = config.getfloat('default','pitchFilterID')
+		self.yawFilterID =  config.getfloat('default','yawFilterID')
+		self.blurFilterID = config.getfloat('default','blurFilterID')
 		self.detectionThread = config.getboolean('default','detectionThread')
 
 	def addImageList(self,row):
@@ -740,7 +789,7 @@ class GUI(tk.Tk):
 
 				else:
 					# no above 70, check if qualify to create new id
-					if abs(self.faceAttributesList[fid].yaw) <= self.yawFilter/2 and abs(self.faceAttributesList[fid].pitch) <= self.pitchFilter/2 and self.faceAttributesList[fid].sharpnessValue >= self.blurFilter+30:
+					if abs(self.faceAttributesList[fid].yaw) <= self.yawFilterID and abs(self.faceAttributesList[fid].pitch) <= self.pitchFilterID and self.faceAttributesList[fid].sharpnessValue >= self.blurFilterID:
 						res = aws.index_faces(enc)
 						awsID = res['FaceRecords'][0]['Face']['FaceId']
 						self.tracker.faceID[fid] = awsID
@@ -766,9 +815,9 @@ class GUI(tk.Tk):
 
 			# if no id returned
 			else:
-				if abs(self.faceAttributesList[fid].yaw) <= self.yawFilter / 2 and abs(
-						self.faceAttributesList[fid].pitch) <= self.pitchFilter / 2 and self.faceAttributesList[
-					fid].sharpnessValue >= self.blurFilter + 30:
+				if abs(self.faceAttributesList[fid].yaw) <= self.yawFilterID and abs(
+						self.faceAttributesList[fid].pitch) <= self.pitchFilterID and self.faceAttributesList[
+					fid].sharpnessValue >= self.blurFilterID:
 
 					res = aws.index_faces(enc)
 					awsID = res['FaceRecords'][0]['Face']['FaceId']
