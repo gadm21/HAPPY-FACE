@@ -8,11 +8,11 @@ timestr = time.time()
 
 #for automatic frame capture, prints success for every frame recorded
 #get frames from live rtsp feed , 3 frames per second, url can be configured
-vidcap = cv2.VideoCapture("rtsp://admin:admin123@tapway1.dlinkddns.com:98/cam/realmonitor?channel=1&subtype=0");
+vidcap = cv2.VideoCapture("rtsp://admin:admin123@tapway1.dlinkddns.com:1234/cam/realmonitor?channel=1&subtype=0");
 success,image = vidcap.read()
 count = 0
 success = True
-mypath = '/home/tapway-office/darkflow-master/frames-idham'
+mypath = 'C:/Users/cheeh/Documents/TrainingData/raw-images'
 
 while success:
     success,image = vidcap.read()
