@@ -284,8 +284,106 @@ class GUI(tk.Tk):
 		editMenu.add_command(label='Delete AWS Recognition Data', command = lambda : self.deleteAWSRecognitionPopup())
 		editMenu.add_command(label='Clear Local Recognition Data', command = lambda : self.deleteLocalData())
 		editMenu.add_command(label='Select Region of Interest',command = lambda : self.selectROIPopup())
+		editMenu.add_command(label='Calibrate Video Resolution',command = lambda : self.calibrateRes())
 
 		menu.add_cascade(label="Edit", menu=editMenu)
+
+	def calibrateRes(self):
+		msg = tk.messagebox.askokcancel('Requirements',
+										'Please make sure there is only ONE person in the video and is standing in the ideal location before pressing "OK".')
+		if msg:
+			flag, imgDisplay = self.camera.read()
+			assert flag == True
+			height, width,_ = imgDisplay.shape
+			bounding_boxes,_ = align.detect_face.detect_face(imgDisplay, minsize, pnet, rnet, onet, threshold, factor,use_thread=self.detectionThread)
+			win = tk.Toplevel()
+			win.resizable(width=False, height=False)
+			win.wm_title("Calibration")
+			frame = tk.ttk.Frame(win, border=2, relief=tk.GROOVE)
+			frame.pack(fill=tk.X, padx=5, pady=5)
+			cv2.putText(imgDisplay,'{} x {}'.format(width,height),(0,25),cv2.FONT_HERSHEY_SIMPLEX,
+						1, (255, 255, 255), 2)
+			cv2image = cv2.cvtColor(imgDisplay,cv2.COLOR_BGR2RGBA)
+			img = Image.fromarray(cv2image)
+			imgtk = ImageTk.PhotoImage(image=img)
+
+			imgLabel = tk.Label(frame, image=imgtk, relief=tk.GROOVE)
+			imgLabel.imgtk = imgtk
+			imgLabel.pack(fill=tk.X)
+			if(len(bounding_boxes)==0):
+				tk.messagebox.showerror('Error', 'No face found within the video.\nPlease make sure there is ONE person in the video whom is standing in the ideal location facing camera and is not blurry',parent = win)
+				win.destroy()
+				return
+			x1=0
+			y1=0
+			x2=0
+			y2=0
+			for tx1,ty1,tx2,ty2,_ in bounding_boxes:
+				x1=max(x1,int(tx1))
+				y1=max(y1,int(ty1))
+				x2=max(x2,int(tx2))
+				y2=max(y2,int(ty2))
+			fheight = int(y2-y1)
+			fwidth = int(x2-x1)
+			text = '{} x {}'.format(fwidth,fheight)
+			textSize = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+			textX = int((x1+x2)/ 2 - (textSize[0]) / 2)
+			textY = y1
+			cv2.rectangle(imgDisplay, (x1, y1),
+						  (x2, y2),
+						  (0,0,255), 2)
+
+			cv2.putText(imgDisplay, text, (textX,textY),
+						cv2.FONT_HERSHEY_SIMPLEX,
+						0.5, (255, 255, 255), 2)
+			cv2image = cv2.cvtColor(imgDisplay, cv2.COLOR_BGR2RGBA)
+			img = Image.fromarray(cv2image)
+			imgtk = ImageTk.PhotoImage(image=img)
+			imgLabel.configure(image=imgtk)
+			imgLabel.imgtk=imgtk
+			# minimum requirement for AWS is 80*80 resolution
+
+			popup = tk.Toplevel()
+			popup.resizable(width=False, height=False)
+			popup.wm_title('Enter minimum Requirement')
+			popup.protocol("WM_DELETE_WINDOW", do_nothing)
+			frame = tk.ttk.Frame(popup, border=2, relief=tk.GROOVE)
+			frame.pack(fill=tk.X, padx=5, pady=5)
+			label = ttk.Label(frame, text='Enter minimum resolution requirement (e.g. 80)',padding=(5,5,5,5))
+			label.pack()
+
+			def validate(val):
+				if str.isdigit(val):
+					return True
+				else:
+					return False
+
+			vcmd = popup.register(validate)
+			minreq = tk.StringVar(None)
+			minreq.set(str(80))
+			input = ttk.Entry(frame, textvariable=minreq, validate='key',validatecommand=(vcmd, '%P'))
+			input.selection_range(0, tk.END)
+			input.pack()
+			popup.bind('<Return>', lambda _: finish())
+			button = ttk.Button(frame, text='OK', command=lambda: finish())
+			button.pack()
+			input.focus()
+
+			def finish():
+				popup.destroy()
+				if(fheight<fwidth):
+					ratio = int(minreq.get())/fheight
+				else:
+					ratio= int(minreq.get())/fwidth
+				rheight = int(math.ceil(ratio*height))
+				rwidth = int(math.ceil(ratio*width))
+				message = tk.messagebox.askyesno('Recommendations', 'Please use a minimum of video resolution {}x{}.\nOr zoom in/out by a factor of {:.3f} to achieve minimum {}x{} face resolution.\nTry again?'.format(rwidth,rheight,ratio,minreq.get(),minreq.get()),parent = win)
+				if message:
+					win.destroy()
+					self.calibrateRes()
+				else:
+					win.destroy()
+
 
 	def uploadICImage(self):
 		def operation():
