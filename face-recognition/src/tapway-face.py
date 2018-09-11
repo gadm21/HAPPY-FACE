@@ -296,6 +296,9 @@ class GUI(tk.Tk):
 			assert flag == True
 			height, width,_ = imgDisplay.shape
 			bounding_boxes,_ = align.detect_face.detect_face(imgDisplay, minsize, pnet, rnet, onet, threshold, factor,use_thread=self.detectionThread)
+			self.videoLabel.update()
+			wwidth = self.videoLabel.winfo_width()
+			wheight = self.videoLabel.winfo_height()
 			win = tk.Toplevel()
 			win.resizable(width=False, height=False)
 			win.wm_title("Calibration")
@@ -305,6 +308,15 @@ class GUI(tk.Tk):
 						1, (255, 255, 255), 2)
 			cv2image = cv2.cvtColor(imgDisplay,cv2.COLOR_BGR2RGBA)
 			img = Image.fromarray(cv2image)
+
+			wpercent = (wwidth / float(img.size[0]))
+			hpercent = (wheight / float(img.size[1]))
+			if wpercent < hpercent:
+				hsize = int((float(img.size[1]) * float(wpercent)))
+				img = img.resize((max(1, wwidth), max(1, hsize)), Image.ANTIALIAS)
+			else:
+				wsize = int((float(img.size[0]) * float(hpercent)))
+				img = img.resize((max(1, wsize), max(1, wheight)), Image.ANTIALIAS)
 			imgtk = ImageTk.PhotoImage(image=img)
 
 			imgLabel = tk.Label(frame, image=imgtk, relief=tk.GROOVE)
@@ -338,15 +350,26 @@ class GUI(tk.Tk):
 						0.5, (255, 255, 255), 2)
 			cv2image = cv2.cvtColor(imgDisplay, cv2.COLOR_BGR2RGBA)
 			img = Image.fromarray(cv2image)
+			if wpercent < hpercent:
+				hsize = int((float(img.size[1]) * float(wpercent)))
+				img = img.resize((max(1, wwidth), max(1, hsize)), Image.ANTIALIAS)
+			else:
+				wsize = int((float(img.size[0]) * float(hpercent)))
+				img = img.resize((max(1, wsize), max(1, wheight)), Image.ANTIALIAS)
+
 			imgtk = ImageTk.PhotoImage(image=img)
 			imgLabel.configure(image=imgtk)
 			imgLabel.imgtk=imgtk
 			# minimum requirement for AWS is 80*80 resolution
 
-			popup = tk.Toplevel()
+			popup = tk.Toplevel(master=win)
 			popup.resizable(width=False, height=False)
 			popup.wm_title('Enter minimum Requirement')
-			popup.protocol("WM_DELETE_WINDOW", do_nothing)
+
+			def destroy():
+				win.destroy()
+
+			popup.protocol("WM_DELETE_WINDOW", destroy)
 			frame = tk.ttk.Frame(popup, border=2, relief=tk.GROOVE)
 			frame.pack(fill=tk.X, padx=5, pady=5)
 			label = ttk.Label(frame, text='Enter minimum resolution requirement (e.g. 80)',padding=(5,5,5,5))
