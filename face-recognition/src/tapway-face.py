@@ -933,6 +933,9 @@ class GUI(tk.Tk):
 			imgCard.fid = fid
 			imgCard.image = cropface
 			self.savingImageData[self.num_face] = imgCard
+		else:
+			self.tracker.appendDeleteFid(fid)
+			self.faceAttributesList.pop(fid, None)
 
 	def AWSRekognition(self,enc,cropface,fid):
 		try:
@@ -1331,13 +1334,15 @@ class GUI(tk.Tk):
 
 					if self.featureOption.get() == 0:
 						t2 = threading.Thread(target=self.AWSRekognition,args=([enc,cropface,currentFaceID]))
+						logger.info('Sending face image number {} to AWS for recognition'.format(currentFaceID))
 					elif self.featureOption.get() == 1:
 						t2 = threading.Thread(target=self.AWSDetection,args=([enc,cropface,currentFaceID]))
+						logger.info('Sending face image number {} to AWS for demographic detection'.format(currentFaceID))
 					else:
 						t2 = threading.Thread(target=self.ageGenderEstimation,args=([cropface,currentFaceID]))
+						logger.info('Using non cloud solution for demographic detection on face image number {}'.format(currentFaceID))
 					t2.start()
 
-					logger.info('Sending face image number {} to AWS for recognition'.format(currentFaceID))
 
 		self.drawTrackedFace(imgDisplay,points.copy())
 
