@@ -28,11 +28,18 @@ import tkinter.ttk as ttk
 from tkinter import messagebox
 from tkinter import filedialog
 from PIL import ImageTk,Image
+import torchvision
+import torch.nn.functional as F
+from torch.autograd import Variable
+from torchvision import transforms
+import torch
 
 import aws.rekognition as aws
 from deepgaze.head_pose_estimation import CnnHeadPoseEstimator
 import blurdetector.blurdetect as blurDetector
 import track.tracker as track
+import hopenet.hopenet as hopenet
+
 
 gpu_memory_fraction = 1.0
 minsize = 40
@@ -184,7 +191,7 @@ class GUI(tk.Tk):
 		self.addImageList(2)
 		self.loadDataFromFile()
 
-		logger.info('Loading head pose estimator CNN models')
+		logger.info('Loading deepgaze head pose estimator CNN models')
 		self.headPoseEstimator = CnnHeadPoseEstimator(sess)
 		self.headPoseEstimator.load_roll_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/roll/cnn_cccdd_30k.tf"))
 		self.headPoseEstimator.load_pitch_variables(os.path.realpath("deepgaze/etc/tensorflow/head_pose/pitch/cnn_cccdd_30k.tf"))
@@ -198,6 +205,28 @@ class GUI(tk.Tk):
 		self.genderNet = cv2.dnn.readNetFromCaffe(
 			"models/gender/deploy.prototxt",
 			"models/gender/gender_net.caffemodel")
+
+		logger.info('Loading hopenet head pose estimator model')
+		self.cudaAvailable = torch.cuda.is_available()
+		self.model = hopenet.Hopenet(torchvision.models.resnet.Bottleneck, [3, 4, 6, 3], 66)
+		self.transformations = transforms.Compose([transforms.Resize(224),
+												   transforms.CenterCrop(224), transforms.ToTensor(),
+												   transforms.Normalize(mean=[0.485, 0.456, 0.406],
+																		std=[0.229, 0.224, 0.225])])
+		if self.cudaAvailable:
+			saved_state_dict = torch.load('hopenet/hopenet_robust_alpha1.pkl')
+			self.model.load_state_dict(saved_state_dict)
+			self.model.cuda()
+			self.idx_tensor = [idx for idx in range(66)]
+			self.idx_tensor = torch.FloatTensor(self.idx_tensor).cuda()
+		else:
+			saved_state_dict = torch.load('hopenet/hopenet_robust_alpha1.pkl',map_location='cpu')
+			self.model.load_state_dict(saved_state_dict)
+			self.idx_tensor = [idx for idx in range(66)]
+			self.idx_tensor = torch.FloatTensor(self.idx_tensor)
+		self.model.eval()
+
+		self.headPoseOption = tk.StringVar(value = 'hopenet')
 
 		logger.info('Initialization and loading completed')
 
@@ -279,6 +308,7 @@ class GUI(tk.Tk):
 		editMenu.add_separator()
 		editMenu.add_command(label='Configure IP Address', command = lambda : self.changeIPPopup())
 		editMenu.add_command(label='Feature Option',command=lambda:self.featureOptionPopup())
+		editMenu.add_command(label='Head Pose Option',command=lambda:self.headPoseOptionPopup())
 		editMenu.add_command(label="Edit Filter Parameters", command = lambda :self.filterParameterPopup())
 		editMenu.add_command(label="Edit Filter Parameters for ID Creation", command = lambda :self.filterIDParameterPopup())
 		editMenu.add_command(label='Delete AWS Recognition Data', command = lambda : self.deleteAWSRecognitionPopup())
@@ -649,6 +679,20 @@ class GUI(tk.Tk):
 		demoNonCloud.pack()
 
 		popup.focus()
+
+	def headPoseOptionPopup(self):
+		popup = tk.Toplevel()
+		popup.resizable(width=False,height=False)
+		popup.wm_title('Head Pose Option')
+
+		hopenet = tk.Radiobutton(popup,text='HopeNet',variable=self.headPoseOption,value='hopenet',height=5,width=30,command= lambda:logger.info('HopeNet head pose estimator is selected'))
+		deepgaze = tk.Radiobutton(popup,text='DeepGaze',variable=self.headPoseOption,value='deepgaze',height=5,width=30,command= lambda:logger.info('DeepGaze head pose estimator is selected'))
+
+		hopenet.pack()
+		deepgaze.pack()
+
+		popup.focus()
+
 
 	def filterParameterPopup(self):
 		newPopup = tk.Toplevel()
@@ -1147,20 +1191,43 @@ class GUI(tk.Tk):
 		win.destroy()
 
 	def getHeadPoseEstimation(self,faceImg):
-		'''
-		Image requirement for Head Pose Estimator
-		[github link: https://github.com/mpatacchiola/deepgaze ]
-		1) Same width and height
-		2) Three color channel
-		3) Minimum size 64x64
-		'''
-		resizeFaceImg = resizeImage(64,64,faceImg)
+		if self.headPoseOption.get()=='hopenet':
+			img = Image.fromarray(faceImg)
+			img = self.transformations(img)
+			img_shape = img.size()
+			img = img.view(1, img_shape[0], img_shape[1], img_shape[2])
+			if self.cudaAvailable:
+				img = Variable(img).cuda(0)
+			else:
+				img = Variable(img)
 
-		roll = self.headPoseEstimator.return_roll(resizeFaceImg)
-		pitch = self.headPoseEstimator.return_pitch(resizeFaceImg)
-		yaw = self.headPoseEstimator.return_yaw(resizeFaceImg)
+			yaw, pitch, roll = self.model(img)
 
-		return roll[0,0,0], pitch[0,0,0], yaw[0,0,0]
+			yaw_predicted = F.softmax(yaw,dim=1)
+			pitch_predicted = F.softmax(pitch,dim=1)
+			roll_predicted = F.softmax(roll,dim=1)
+			# Get continuous predictions in degrees.
+			yaw_predicted = torch.sum(yaw_predicted.data[0] * self.idx_tensor) * 3 - 99
+			pitch_predicted = torch.sum(pitch_predicted.data[0] * self.idx_tensor) * 3 - 99
+			roll_predicted = torch.sum(roll_predicted.data[0] * self.idx_tensor) * 3 - 99
+			return roll_predicted, pitch_predicted, yaw_predicted
+		elif self.headPoseOption.get() == 'deepgaze':
+			'''
+			Image requirement for Head Pose Estimator
+			[github link: https://github.com/mpatacchiola/deepgaze ]
+			1) Same width and height
+			2) Three color channel
+			3) Minimum size 64x64
+			'''
+			resizeFaceImg = resizeImage(64,64,faceImg)
+
+			roll = self.headPoseEstimator.return_roll(resizeFaceImg)
+			pitch = self.headPoseEstimator.return_pitch(resizeFaceImg)
+			yaw = self.headPoseEstimator.return_yaw(resizeFaceImg)
+
+			return roll[0,0,0], pitch[0,0,0], yaw[0,0,0]
+		else:
+			return None,None,None
 
 	def detectBlur(self,img,thresh=35):
 		'''
@@ -1302,7 +1369,7 @@ if __name__ == '__main__':
 	# NUM_THREADS = 44
 	with tf.Graph().as_default():
 		gpu_options = tf.GPUOptions(
-			per_process_gpu_memory_fraction=gpu_memory_fraction)
+			per_process_gpu_memory_fraction=gpu_memory_fraction, allow_growth = True)
 		logger.info('Starting new tensorflow session with gpu memory fraction {}'.format(gpu_memory_fraction))
 		sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options,
 												# intra_op_parallelism_threads=NUM_THREADS,
