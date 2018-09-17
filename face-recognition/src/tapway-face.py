@@ -42,7 +42,7 @@ import hopenet.hopenet as hopenet
 
 
 gpu_memory_fraction = 1.0
-minsize = 40
+minsize = 93
 threshold = [ 0.6, 0.7, 0.7 ]
 factor = 0.709
 
