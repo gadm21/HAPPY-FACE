@@ -168,7 +168,8 @@ class GUI(tk.Tk):
 		### read single frame to setup imageList
 		self.camera = cv2.VideoCapture(self.file)
 		self.camera.set(cv2.CAP_PROP_BUFFERSIZE,2)
-		_,frame = self.camera.read()
+		flag,frame = self.camera.read()
+		assert flag == True
 		self.tracker.videoFrameSize = frame.shape
 		height,width,_ = frame.shape
 		self.ROIx1=0
@@ -187,7 +188,10 @@ class GUI(tk.Tk):
 		self.videoLabel.image = None
 		self.videoError = False
 
-		self.imageList = []
+		self.imageList = {}
+		ttk.Style().configure("RB.TButton", foreground='black', background='red')
+		ttk.Style().configure("YB.TButton", foreground='black', background='yellow')
+		ttk.Style().configure("WB.TButton", foreground='black')
 		self.addImageList(2)
 		self.loadDataFromFile()
 
@@ -254,6 +258,13 @@ class GUI(tk.Tk):
 		logger.info('Saving face names data to /data/faceName.json')
 		with open('data/faceName.json','w+') as outfile:
 			json.dump(jsonpickle.encode(self.faceNamesList),outfile)
+		logger.info('Saving whitelist data to /data/whiteList.json')
+		with open('data/whiteList.json', 'w+') as outfile:
+			json.dump(jsonpickle.encode(self.whitelist),outfile)
+		logger.info('Saving blacklist data to /data/blackList.txt')
+		with open('data/blackList.txt', 'w') as infile:
+				for item in self.blacklist:
+					infile.write("%s\n" % item)
 
 		logger.info('Saving image cards to /data/imageCard.pickle')
 		with open('data/imageCard.pickle', 'wb+') as handle:
@@ -272,7 +283,12 @@ class GUI(tk.Tk):
 			logger.info('Loading face names data from /data/faceName.json')
 			with open('data/faceName.json') as infile:
 				self.faceNamesList = jsonpickle.decode(json.load(infile))
-
+			logger.info('Loading whitelist data from /data/whiteList.json')
+			with open('data/whiteList.json') as infile:
+				self.whitelist = jsonpickle.decode(json.load(infile))
+			logger.info('Loading blacklist data from /data/blackList.txt')
+			with open('data/blackList.txt', ) as infile:
+				self.blacklist = infile.read().splitlines()
 			logger.info('Loading image cards from /data/imageCard.pickle')
 			with open('data/imageCard.pickle', 'rb') as handle:
 				self.savingImageData = pickle.load(handle)
@@ -285,6 +301,8 @@ class GUI(tk.Tk):
 			logger.warning('Failed to load data from files: '+str(ex))
 			self.faceNamesList = {}
 			self.faceAttributesList = {}
+			self.whitelist = {}
+			self.blacklist = []
 			self.savingImageData = {}
 		max = 0
 		for keys in self.faceAttributesList.keys():
@@ -297,10 +315,10 @@ class GUI(tk.Tk):
 		menu = tk.Menu(self.winfo_toplevel())
 
 		fileMenu = tk.Menu(menu)
-		fileMenu.add_command(label='New')
-		fileMenu.add_command(label='Upload an IC image', command=lambda: self.uploadICImage())
+		fileMenu.add_command(label='New Whitelist Entry', command=lambda: self.new_whitelist())
+		fileMenu.add_command(label='New Blacklist Entry', command=lambda: self.new_blacklist())
 
-		menu.add_cascade(label='File', menu=fileMenu)
+		menu.add_cascade(label='Registration', menu=fileMenu)
 
 		self.winfo_toplevel().config(menu=menu)
 
@@ -356,15 +374,7 @@ class GUI(tk.Tk):
 				tk.messagebox.showerror('Error', 'No face found within the video.\nPlease make sure there is ONE person in the video whom is standing in the ideal location facing camera and is not blurry',parent = win)
 				win.destroy()
 				return
-			x1=0
-			y1=0
-			x2=0
-			y2=0
-			for tx1,ty1,tx2,ty2,_ in bounding_boxes:
-				x1=max(x1,int(tx1))
-				y1=max(y1,int(ty1))
-				x2=max(x2,int(tx2))
-				y2=max(y2,int(ty2))
+			x1,y1,x2,y2,_ = bounding_boxes[0]
 			fheight = int(y2-y1)
 			fwidth = int(x2-x1)
 			text = '{} x {}'.format(fwidth,fheight)
@@ -437,100 +447,286 @@ class GUI(tk.Tk):
 				else:
 					win.destroy()
 
+	def rm_from_blacklist(self,awsid):
+		if awsid in self.blacklist:
+			self.blacklist.remove(awsid)
+			for fid in self.imageList:
+				imgLabel = self.imageList[fid]
+				if fid in self.faceAttributesList:
+					if self.faceAttributesList[fid].awsID in self.blacklist:
+						imgLabel.configure(style="RB.TButton")
+					elif self.faceAttributesList[fid].similarity == 'New Face':
+						imgLabel.configure(style="YB.TButton")
+					else:
+						imgLabel.configure(style="WB.TButton")
+			self.gridResetLayout()
+			logger.info('Removed {} from blacklist'.format(awsid))
 
-	def uploadICImage(self):
-		def operation():
-			message = tk.messagebox.showinfo('Requirement', 'Please select an photo with resolution of at least 80*80.')
-			logger.info('User requested to upload an IC photo')
-			fpath = filedialog.askopenfilename(initialdir=os.getcwd(), title="Select IC Photo",
-													   filetypes=[("Image files", "*.jpg *.png")])
-			if fpath:
-				faceimg = cv2.imread(fpath)
-				height, width, _ = faceimg.shape
-				if height<80 or width<80:
-					tk.messagebox.showerror('Bad Photo', 'The selected photo does not meet minimum resolution (80*80)!')
-					logger.warning('The selected photo does not meet minimum resolution (80*80)!')
-					return
+	def add_to_blacklist(self,awsid):
+		if awsid not in self.blacklist:
+			self.blacklist.append(awsid)
+			for fid in self.imageList:
+				imgLabel = self.imageList[fid]
+				if fid in self.faceAttributesList:
+					if self.faceAttributesList[fid].awsID in self.blacklist:
+						imgLabel.configure(style="RB.TButton")
+					elif self.faceAttributesList[fid].similarity == 'New Face':
+						imgLabel.configure(style="YB.TButton")
+					else:
+						imgLabel.configure(style="WB.TButton")
+			self.gridResetLayout()
+			logger.info('Added {} to blacklist'.format(awsid))
+
+	def new_blacklist(self):
+		win = tk.Toplevel()
+		win.resizable(width=False, height=False)
+		win.wm_title("Register Face to Blacklist")
+
+		frame = tk.ttk.Frame(win, border=2, relief=tk.GROOVE)
+		frame.pack(fill=tk.X, padx=5, pady=5)
+
+		idFrame = tk.ttk.Frame(frame)
+		idFrame.pack(fill=tk.X, pady=5)
+
+		idLabel = tk.ttk.Label(idFrame, text='{0:15}\t:'.format('Ban AWS ID'))
+		idLabel.pack(side=tk.LEFT, padx=5)
+
+		idEntry = tk.ttk.Entry(idFrame)
+		idEntry.pack(side=tk.LEFT)
+		submit = tk.ttk.Button(frame, text='Submit', width=10,
+							   command=lambda: self.add_to_blacklist(idEntry.get())or win.destroy())
+		submit.pack(pady=5)
+		win.bind('<Return>', lambda _: self.add_to_blacklist(idEntry.get()) or win.destroy())
+		idEntry.focus()
+
+	def new_whitelist(self):
+		win = tk.Toplevel()
+		win.resizable(width=False, height=False)
+		win.wm_title('New Whitelist Entry')
+		label = tk.Label(win, text ='Please choose one of the following option.')
+		label.pack(pady=5,padx=5,side = tk.LEFT)
+		takephoto = tk.ttk.Button(win,text = 'Take A Photo',command = lambda: self.take_photo(win))
+		takephoto.pack(pady = 5,padx=5, side = tk.BOTTOM)
+		uploadic = tk.ttk.Button(win, text = 'Upload IC Image', command = lambda: self.uploadICImage(win))
+		uploadic.pack(pady=5,padx=5, side = tk.BOTTOM)
+
+	def take_photo(self, win):
+		win.destroy()
+		logger.info('User requested to take photo for whitelist entry')
+		msg = tk.messagebox.askokcancel('Requirements',
+										'Please make sure there is only ONE person in the video and is standing in the ideal location before pressing "OK".')
+		if msg:
+			flag, imgDisplay = self.camera.read()
+			assert flag == True
+			height, width, _ = imgDisplay.shape
+			bounding_boxes, _ = align.detect_face.detect_face(imgDisplay, minsize, pnet, rnet, onet, threshold, factor,
+															  use_thread=self.detectionThread)
+			if (len(bounding_boxes) == 0):
+				tk.messagebox.showerror('Error',
+										'No face found within the video.\nPlease make sure there is ONE person in the video whom is standing in the ideal location facing camera and is not blurry',
+										)
+				return
+			x1,y1,x2,y2,_ = bounding_boxes[0]
+			width = x2-x1
+			height = y2-y1
+			faceimg = cropFace(imgDisplay, (x1, y1, x2, y2), crop_factor=self.crop_factor, minHeight=80, minWidth=80)
+			laplacian = self.detectBlurLaplacian(faceimg)
+			roll, pitch, yaw = self.getHeadPoseEstimation(faceimg)
+			logger.info('Detected a face for whitelist entry with pitch: {}, yaw: {}, blurriness: {}'.format(pitch,yaw,laplacian))
+			msg = True
+			if width<80 or height<80 or laplacian<self.blurFilterID or abs(pitch)>self.pitchFilterID or abs(yaw)>self.yawFilterID:
+				cv2image = resizeImage(150, 150, faceimg)
+				cv2image = cv2.cvtColor(cv2image, cv2.COLOR_BGR2RGBA)
+
+				img = Image.fromarray(cv2image)
+				imgtk = ImageTk.PhotoImage(image=img)
+
+				win = tk.Toplevel()
+				win.resizable(width=False, height=False)
+				win.wm_title("Low Quality Photo")
+				win.protocol("WM_DELETE_WINDOW", do_nothing)
+
+				frame = tk.ttk.Frame(win, border=2, relief=tk.GROOVE)
+				frame.pack(fill=tk.X, padx=5, pady=5)
+
+				imgLabel = tk.Label(frame, image=imgtk, relief=tk.GROOVE)
+				imgLabel.imgtk = imgtk
+				imgLabel.pack(fill=tk.X)
+				msg = tk.messagebox.askokcancel('Warning','The face quality is low, proceed?',parent = win)
+				win.destroy()
+			if msg:
 				enc = cv2.imencode('.png', faceimg)[1].tostring()
-				try:
-					res = aws.search_faces(enc)
-					if len(res['FaceMatches']) == 0:
-						logger.info('Face of IC image does not match any faces in AWS')
-					else:
-						faceList = []
-						for faces in res['FaceMatches']:
-							if faces['Similarity'] >= 70:
-								faceList.append(faces['Face']['FaceId'])
+				self.add_to_whitelist(enc, faceimg)
+		else:
+			logger.info('User cancelled taking photo for whitelist entry')
 
-						if len(faceList) > 0:
-							msg = tk.messagebox.askokcancel('AWS ID Deletion','The following face IDs will be deleted:\n{}'.format(faceList))
-							if msg:
-								aws.delete_faces(faceList)
-								logger.info('The following face IDs matched the face of IC image and are deleted: {}'.format(faceList))
-							else:
-								logger.warning('User refused to delete ID that matches face of IC image. Operation cancelled')
-								return
+	def uploadICImage(self,win):
+		win.destroy()
+		message = tk.messagebox.showinfo('Requirement', 'Please select an photo with resolution of at least 80*80.')
+		logger.info('User requested to upload an IC photo for whitelist entry')
+		fpath = filedialog.askopenfilename(initialdir=os.getcwd(), title="Select IC Photo",
+												   filetypes=[("Image files", "*.jpg *.png")])
+		if fpath:
+			faceimg = cv2.imread(fpath)
+			height, width, _ = faceimg.shape
+			if height<80 or width<80:
+				tk.messagebox.showerror('Bad Photo', 'The selected photo does not meet minimum resolution (80*80)!')
+				logger.warning('The selected photo does not meet minimum resolution (80*80)!')
+				return
+			enc = cv2.imencode('.png', faceimg)[1].tostring()
+			self.add_to_whitelist(enc,faceimg)
 
-					res = aws.index_faces(enc)
-					awsID = res['FaceRecords'][0]['Face']['FaceId']
+		else:
+			logger.info('User cancelled upload IC image for whitelist entry')
 
-					logger.info('Face in IC photo is successfully registered to ID {}'.format(awsID))
+	def add_to_whitelist(self,enc, faceimg):
+		def proceed():
+			firstname = firstnameEntry.get()
+			if firstname == '':
+				tk.messagebox.showerror('Error','Please enter first name!', parent=win)
+				return
+			lastname = lastnameEntry.get()
+			if lastname == '':
+				tk.messagebox.showerror('Error','Please enter last name!',parent=win)
+				return
+			type = typevar.get()
+			ic_passport = icEntry.get()
+			phone_number = phoneEntry.get()
+			email = emailEntry.get()
+			entry = WhiteListEntry()
+			entry.awsID = awsID
+			entry.first_name = firstname
+			entry.last_name = lastname
+			entry.type = type
+			entry.ic_passport = ic_passport
+			if ic_passport=='':
+				entry.ic_passport = None
+			entry.phone_number = phone_number
+			if phone_number == '':
+				entry.phone_number = None
+			entry.email = email
+			if email == '':
+				entry.email = None
+			self.whitelist[awsID] = entry
+			self.submit(awsID, '{} {}'.format(firstname,lastname),win)
+			tk.messagebox.showinfo('Operation Successful','Successfully added {} {} to whitelist'.format(firstname,lastname),parent=win)
+			logger.info('Successfully added {} {} to whitelist'.format(firstname,lastname))
 
-					cv2image = resizeImage(150, 150, faceimg)
-					cv2image = cv2.cvtColor(cv2image, cv2.COLOR_BGR2RGBA)
-
-					img = Image.fromarray(cv2image)
-					imgtk = ImageTk.PhotoImage(image=img)
-
-					win = tk.Toplevel()
-					win.resizable(width=False, height=False)
-					win.wm_title("Register IC Face")
-					win.protocol("WM_DELETE_WINDOW", do_nothing)
-
-					frame = tk.ttk.Frame(win, border=2, relief=tk.GROOVE)
-					frame.pack(fill=tk.X, padx=5, pady=5)
-
-					imgLabel = tk.Label(frame, image=imgtk, relief=tk.GROOVE)
-					imgLabel.imgtk = imgtk
-					imgLabel.pack(fill=tk.X)
-
-					nameFrame = tk.ttk.Frame(frame)
-					nameFrame.pack(fill=tk.X, pady=5)
-
-					nameLabel = tk.ttk.Label(nameFrame, text='{0:15}\t:'.format('Name'))
-					nameLabel.pack(side=tk.LEFT, padx=5)
-
-					nameEntry = tk.ttk.Entry(nameFrame)
-					name = awsID
-					nameEntry.insert(0, name)
-					nameEntry.selection_range(0, tk.END)
-					nameEntry.pack(side=tk.LEFT)
-					submit = tk.ttk.Button(frame, text='Submit', width=10,
-										   command=lambda: self.submit(awsID, nameEntry.get(),
-																	   win) or tk.messagebox.showinfo(
-											   'Operation Successful',
-											   'Face in IC photo is registered to ID {}'.format(awsID)))
-					submit.pack(pady=5)
-					win.bind('<Return>', lambda _: self.submit(awsID, nameEntry.get(), win) or tk.messagebox.showinfo(
-						'Operation Successful',
-						'Face in IC photo is registered to ID {}'.format(awsID)))
-					nameEntry.focus()
-
-				except Exception as e:
-					# aws rekognition will have error if does not detect any face
-					if type(e).__name__ == 'InvalidParameterException':
-						print('aws exception')
-						tk.messagebox.showerror('Bad Photo', 'Unable to detect face in the selected photo!')
-						logger.warning('AWS Exception, no face detected in the IC image uploaded, upload IC photo failed')
-					else:
-						tk.messagebox.showerror('Unknown Error', 'Something bad happened! Please refer to log files')
-						logger.error('Upload IC photo failed')
-						logger.error(e)
-
+		try:
+			res = aws.search_faces(enc)
+			if len(res['FaceMatches']) == 0:
+				logger.info('Face of IC image does not match any faces in AWS')
 			else:
-				logger.info('User cancelled upload IC image operation')
-		t2 = threading.Thread(target=operation)
-		t2.start()
+				faceList = []
+				for faces in res['FaceMatches']:
+					if faces['Similarity'] >= 70:
+						faceList.append(faces['Face']['FaceId'])
+
+				if len(faceList) > 0:
+					msg = tk.messagebox.askokcancel('AWS ID Deletion',
+													'The following face IDs will be deleted:\n{}'.format(faceList))
+					if msg:
+						aws.delete_faces(faceList)
+						for awsid in faceList:
+							if awsid in self.whitelist:
+								self.whitelist.pop(awsid)
+							if awsid in self.faceNamesList:
+								self.faceNamesList.pop(awsid)
+
+						logger.info(
+							'The following face IDs matched the face of IC image and are deleted: {}'.format(faceList))
+					else:
+						logger.warning('User refused to delete ID that matches face of IC image. Operation cancelled')
+						return
+
+			res = aws.index_faces(enc)
+			awsID = res['FaceRecords'][0]['Face']['FaceId']
+
+			logger.info('Face is successfully registered to ID {}'.format(awsID))
+
+			cv2image = resizeImage(150, 150, faceimg)
+			cv2image = cv2.cvtColor(cv2image, cv2.COLOR_BGR2RGBA)
+
+			img = Image.fromarray(cv2image)
+			imgtk = ImageTk.PhotoImage(image=img)
+
+			win = tk.Toplevel()
+			win.resizable(width=False, height=False)
+			win.wm_title("Register Face to Whitelist")
+			win.protocol("WM_DELETE_WINDOW", do_nothing)
+
+			frame = tk.ttk.Frame(win, border=2, relief=tk.GROOVE)
+			frame.pack(fill=tk.X, padx=5, pady=5)
+
+			imgLabel = tk.Label(frame, image=imgtk, relief=tk.GROOVE)
+			imgLabel.imgtk = imgtk
+			imgLabel.pack(fill=tk.X)
+
+			firstnameFrame = tk.ttk.Frame(frame)
+			firstnameFrame.pack(fill=tk.X, pady=5)
+
+			firstnameLabel = tk.ttk.Label(firstnameFrame, text='{0:15}\t:'.format('First Name'))
+			firstnameLabel.pack(side=tk.LEFT, padx=5)
+
+			firstnameEntry = tk.ttk.Entry(firstnameFrame)
+			firstnameEntry.insert(0, awsID)
+			firstnameEntry.selection_range(0, tk.END)
+			firstnameEntry.pack(side=tk.LEFT)
+
+			lastnameFrame = tk.ttk.Frame(frame)
+			lastnameFrame.pack(fill=tk.X, pady=5)
+			lastnameLabel = tk.ttk.Label(lastnameFrame, text='{0:15}\t:'.format('Last Name'))
+			lastnameLabel.pack(side=tk.LEFT, padx=5)
+			lastnameEntry = tk.ttk.Entry(lastnameFrame)
+			lastnameEntry.pack(side=tk.LEFT)
+
+			typeFrame = tk.ttk.Frame(frame)
+			typeFrame.pack(fill = tk.X,pady = 5)
+			typeLabel = tk.ttk.Label(typeFrame, text = '{0:15}\t:'.format('Type'))
+			typeLabel.pack(side = tk.LEFT,padx = 5)
+			option = ['Visitor','Staff','VIP']
+			typevar = tk.StringVar(win)
+			typevar.set(option[0])
+			typeMenu = tk.OptionMenu(typeFrame, typevar, *option)
+			typeMenu.pack(side = tk.LEFT)
+
+			icFrame = tk.ttk.Frame(frame)
+			icFrame.pack(fill=tk.X, pady=5)
+			icLabel = tk.ttk.Label(icFrame, text='{0:15}\t:'.format('IC/Passport'))
+			icLabel.pack(side=tk.LEFT, padx=5)
+			icEntry = tk.ttk.Entry(icFrame)
+			icEntry.pack(side=tk.LEFT)
+
+			phoneFrame = tk.ttk.Frame(frame)
+			phoneFrame.pack(fill=tk.X, pady=5)
+			phoneLabel = tk.ttk.Label(phoneFrame, text='{0:15}\t:'.format('Phone Number'))
+			phoneLabel.pack(side=tk.LEFT, padx=5)
+			phoneEntry = tk.ttk.Entry(phoneFrame)
+			phoneEntry.pack(side=tk.LEFT)
+
+			emailFrame = tk.ttk.Frame(frame)
+			emailFrame.pack(fill=tk.X, pady=5)
+			emailLabel = tk.ttk.Label(emailFrame, text='{0:15}\t:'.format('Email'))
+			emailLabel.pack(side=tk.LEFT, padx=5)
+			emailEntry = tk.ttk.Entry(emailFrame)
+			emailEntry.pack(side=tk.LEFT)
+
+			submit = tk.ttk.Button(frame, text='Submit', width=10,
+								   command=lambda: proceed())
+			submit.pack(pady=5)
+			win.bind('<Return>', lambda _: proceed())
+			firstnameEntry.focus()
+
+		except Exception as e:
+			# aws rekognition will have error if does not detect any face
+			if type(e).__name__ == 'InvalidParameterException':
+				print('aws exception')
+				tk.messagebox.showerror('Bad Photo', 'Unable to detect face in the uploaded photo!')
+				logger.warning('AWS Exception, no face detected in the image uploaded, add to whitelist failed')
+			else:
+				tk.messagebox.showerror('Unknown Error', 'Something bad happened! Please refer to log files')
+				logger.error('Adding to whitelist failed with error')
+				logger.error(e)
 
 	def selectROIPopup(self):
 		logger.info('User is selecting ROI')
@@ -778,7 +974,7 @@ class GUI(tk.Tk):
 		message = tk.messagebox.askokcancel("Delete AWS Recognition Data","Are you sure you want to delete All Recognition Data on AWS Server?")
 		if message:
 			logger.warning('User requested to delete all recognition data on AWS Server')
-			self.deleteRecognition()
+			aws.clear_collection()
 
 	def deleteLocalData(self):
 		message = tk.messagebox.askokcancel("Clear All Local Recognition Data",
@@ -789,7 +985,9 @@ class GUI(tk.Tk):
 			self.currentFaceID = 0
 			self.faceNamesList = {}
 			self.faceAttributesList = {}
-			self.imageList = []
+			self.whitelist = {}
+			self.blacklist = []
+			self.imageList = {}
 			self.savingImageData = {}
 			self.tracker = track.Tracker()
 			self.frame.destroy()
@@ -801,9 +999,6 @@ class GUI(tk.Tk):
 			self.addImageList(2)
 			self.saveDataToFile()
 			logger.info('Local data deletion completed')
-
-	def deleteRecognition(self):
-		aws.clear_collection()
 
 	def readConfigFile(self):
 		config = ConfigParser()
@@ -831,11 +1026,12 @@ class GUI(tk.Tk):
 
 		img = Image.fromarray(cv2image)
 		imgtk = ImageTk.PhotoImage(image=img)
-
+		count = -1
 		for i in range(row):
 			imgLabel = tk.ttk.Button(self.frame.interior,image=imgtk,state='disable')
 			imgLabel.imgtk = imgtk
-			self.imageList.append(imgLabel)
+			self.imageList[str(count)] = imgLabel
+			count-=1
 		self.gridResetLayout()
 		logger.info('Image list with {} row has been created'.format(row))
 
@@ -846,23 +1042,29 @@ class GUI(tk.Tk):
 		img = Image.fromarray(cv2image)
 		imgtk = ImageTk.PhotoImage(image=img)
 		imgLabel = tk.ttk.Button(self.frame.interior,image=imgtk,command=lambda:self.popup(fid,imgtk))
-		if self.faceAttributesList[fid].similarity == 'New Face':
-			ttk.Style().configure("RB.TButton", foreground='black', background='red')
+		if self.faceAttributesList[fid].awsID in self.blacklist:
 			imgLabel.configure(style="RB.TButton")
+		elif self.faceAttributesList[fid].similarity == 'New Face':
+			imgLabel.configure(style="YB.TButton")
+		else:
+			imgLabel.configure(style="WB.TButton")
+
 		imgLabel.imgtk = imgtk
 
-		self.imageList.append(imgLabel)
+		self.imageList[fid] = imgLabel
 		self.gridResetLayout()
-		logger.info('New face with ID {} has been added to image list'.format(fid))
 
 	def gridResetLayout(self):
 		### reverse image list for make the latest image in the top of list for GUI view
-		for index,item in enumerate(reversed(self.imageList)):
+		index = 0
+		for fid in sorted(self.imageList.keys(), reverse=True):
+			item = self.imageList[fid]
 			item.grid(row=0,column=0)
 			if index%2==0:
 				item.grid(row=int(index/2),column=index%2,padx=(10,5),pady=10)
 			else:
 				item.grid(row=int(index/2),column=index%2,padx=(5,10),pady=10)
+			index+=1
 
 	def showFrame(self):
 		flag, frame = self.camera.read()
@@ -1044,6 +1246,7 @@ class GUI(tk.Tk):
 		self.faceAttributesList[fid].recognizedTime = str(datetime.datetime.now().strftime('%H:%M:%S %d-%m-%Y'))
 
 		self.addFaceToImageList(fid,cropface)
+		logger.info('New face with ID {} has been added to image list'.format(fid))
 		imgCard = ImageCard()
 		imgCard.fid = fid
 		imgCard.image = cropface
@@ -1182,6 +1385,15 @@ class GUI(tk.Tk):
 
 		submit = tk.ttk.Button(frame,text='Submit',width=10,command=lambda:self.submit(faceAttr.awsID,nameEntry.get(),win))
 		submit.pack(pady=5)
+		if faceAttr.awsID not in self.blacklist:
+			addtoblacklist = tk.ttk.Button(frame, text='Add to Blacklist',
+										   command=lambda: win.destroy() or self.add_to_blacklist(faceAttr.awsID))
+			addtoblacklist.pack(pady=5)
+		else:
+			addtoblacklist = tk.ttk.Button(frame, text='Remove from Blacklist',
+										   command=lambda: win.destroy() or self.rm_from_blacklist(faceAttr.awsID))
+			addtoblacklist.pack(pady=5)
+
 		win.bind('<Return>',lambda _:self.submit(faceAttr.awsID,nameEntry.get(),win))
 
 		nameEntry.focus()
@@ -1360,6 +1572,19 @@ class FaceAttribute(object):
 		self.ageRangeHigh = None
 		self.detectedTime = None
 		self.recognizedTime = None
+
+class WhiteListEntry(object):
+	def __init__(self):
+		self.awsID = None
+		self.first_name = None
+		self.last_name = None
+		self.type = None
+		self.ic_passport = None
+		self.phone_number = None
+		self.email = None
+
+	def __repr__(self):
+		return '{} {}, {}, {}, {}, {}'.format(self.first_name,self.last_name,self.type,self.ic_passport,self.phone_number,self.email)
 
 class ImageCard(object):
 	def __init__(self):
