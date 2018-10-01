@@ -149,7 +149,12 @@ class GUI(tk.Tk):
 		self.appIcon = tk.Image("photo", file="gui/tapway.png")
 		# self.call('wm','iconphoto',self._w, self.appIcon)
 		self.wm_iconphoto(True,self.appIcon)
-
+		self.pitchFilter = tk.DoubleVar()
+		self.yawFilter = tk.DoubleVar()
+		self.blurFilter = tk.DoubleVar()
+		self.pitchFilterID = tk.DoubleVar()
+		self.yawFilterID = tk.DoubleVar()
+		self.blurFilterID = tk.DoubleVar()
 		self.readConfigFile()
 
 		self.AWSthreshold = 70
@@ -889,86 +894,65 @@ class GUI(tk.Tk):
 
 		popup.focus()
 
-
 	def filterParameterPopup(self):
 		newPopup = tk.Toplevel()
 		newPopup.resizable(width=False,height=False)
 		newPopup.wm_title("Filter Parameter")
+		newPopup.protocol("WM_DELETE_WINDOW", func = lambda: self.updateFilter(win=newPopup))
 		newPopup.geometry("300x300")
 		label = ttk.Label(newPopup,text="Pitch Angle: ", font=("Helvetica",10))
 		label.pack(pady=10)
 		value = ttk.Label(newPopup,textvariable=self.pitchFilter)
 		value.pack()
-		pitchScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.pitchFilter, command=lambda _:self.updatePitch(pitch=pitchScale.get()))
-		pitchScale.set(self.pitchFilter)
+		pitchScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.pitchFilter)
 		pitchScale.pack()
 		label2 = ttk.Label(newPopup, text="Yaw Angle: ", font=("Helvetica",10))
 		label2.pack(pady=10)
 		value2 = ttk.Label(newPopup, textvariable=self.yawFilter)
 		value2.pack()
-		yawScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.yawFilter, command=lambda _:self.updateYaw(yaw=yawScale.get()))
-		yawScale.set(self.yawFilter)
+		yawScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.yawFilter)
 		yawScale.pack()
 		label3 = ttk.Label(newPopup, text="Blur Filter: ", font=("Helvetica",10))
 		label3.pack(pady=10)
 		value3 = ttk.Label(newPopup, textvariable=self.blurFilter)
 		value3.pack()
-		blurScale = ttk.Scale(newPopup, from_=0, to=200, orient=tk.HORIZONTAL, variable=self.blurFilter, command=lambda _:self.updateBlur(blur=blurScale.get()))
-		blurScale.set(self.blurFilter)
+		blurScale = ttk.Scale(newPopup, from_=0, to=200, orient=tk.HORIZONTAL, variable=self.blurFilter)
 		blurScale.pack()
 		newPopup.focus()
 
-	def updatePitch(self, pitch):
-		self.pitchFilter=pitch
-		logger.info('New pitch filter value is set to {} by user'.format(pitch))
-
-	def updateYaw(self, yaw):
-		self.yawFilter=yaw
-		logger.info('New yaw filter value is set to {} by user'.format(yaw))
-
-	def updateBlur(self, blur):
-		self.blurFilter=blur
-		logger.info('New blur filter is set to {} by user'.format(blur))
+	def updateFilter(self, win):
+		win.destroy()
+		logger.info('User set new pitch filter value as {}, yaw filter as {}, blur filter as {}'.format(self.pitchFilter.get(),self.yawFilter.get(),self.blurFilter.get()))
 
 	def filterIDParameterPopup(self):
 		newPopup = tk.Toplevel()
 		newPopup.resizable(width=False,height=False)
 		newPopup.wm_title("Filter Parameter For ID Creation")
+		newPopup.protocol("WM_DELETE_WINDOW", func = lambda: self.updateIDFilter(win=newPopup))
 		newPopup.geometry("300x300")
 		label = ttk.Label(newPopup,text="Pitch Angle For ID Creation: ", font=("Helvetica",10))
 		label.pack(pady=10)
 		value = ttk.Label(newPopup,textvariable=self.pitchFilterID)
 		value.pack()
-		pitchScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.pitchFilterID, command=lambda _:self.updatePitchID(pitch=pitchScale.get()))
-		pitchScale.set(self.pitchFilterID)
+		pitchScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.pitchFilterID)
 		pitchScale.pack()
 		label2 = ttk.Label(newPopup, text="Yaw Angle For ID Creation: ", font=("Helvetica",10))
 		label2.pack(pady=10)
 		value2 = ttk.Label(newPopup, textvariable=self.yawFilterID)
 		value2.pack()
-		yawScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.yawFilterID, command=lambda _:self.updateYawID(yaw=yawScale.get()))
-		yawScale.set(self.yawFilterID)
+		yawScale = ttk.Scale(newPopup, from_=0, to=90, orient=tk.HORIZONTAL,variable = self.yawFilterID)
 		yawScale.pack()
 		label3 = ttk.Label(newPopup, text="Blur Filter For ID Creation: ", font=("Helvetica",10))
 		label3.pack(pady=10)
 		value3 = ttk.Label(newPopup, textvariable=self.blurFilterID)
 		value3.pack()
-		blurScale = ttk.Scale(newPopup, from_=0, to=200, orient=tk.HORIZONTAL, variable=self.blurFilterID, command=lambda _:self.updateBlurID(blur=blurScale.get()))
-		blurScale.set(self.blurFilterID)
+		blurScale = ttk.Scale(newPopup, from_=0, to=200, orient=tk.HORIZONTAL, variable=self.blurFilterID)
 		blurScale.pack()
 		newPopup.focus()
 
-	def updatePitchID(self, pitch):
-		self.pitchFilterID=pitch
-		logger.info('New pitch filter value for ID Creation is set to {} by user'.format(pitch))
-
-	def updateYawID(self, yaw):
-		self.yawFilterID=yaw
-		logger.info('New yaw filter value for ID Creation is set to {} by user'.format(yaw))
-
-	def updateBlurID(self, blur):
-		self.blurFilterID=blur
-		logger.info('New blur filter for ID Creation is set to {} by user'.format(blur))
+	def updateIDFilter(self,win):
+		win.destroy()
+		logger.info('User set new pitch filter as {}, yaw filter as {} and blur filter as {} for ID creation'.format(self.pitchFilterID.get(),self.yawFilterID.get(),self.blurFilterID.get()))
 
 	def deleteAWSRecognitionPopup(self):
 		message = tk.messagebox.askokcancel("Delete AWS Recognition Data","Are you sure you want to delete All Recognition Data on AWS Server?")
@@ -1012,12 +996,12 @@ class GUI(tk.Tk):
 
 		self.saveImgPath = config.get('default','imagePath')
 		self.frame_interval = config.getint('default','frameInterval')
-		self.pitchFilter = config.getfloat('default','pitchFilter')
-		self.yawFilter = config.getfloat('default','yawFilter')
-		self.blurFilter = config.getfloat('default','blurFilter')
-		self.pitchFilterID = config.getfloat('default','pitchFilterID')
-		self.yawFilterID =  config.getfloat('default','yawFilterID')
-		self.blurFilterID = config.getfloat('default','blurFilterID')
+		self.pitchFilter.set(config.getfloat('default','pitchFilter'))
+		self.yawFilter.set(config.getfloat('default','yawFilter'))
+		self.blurFilter.set(config.getfloat('default','blurFilter'))
+		self.pitchFilterID.set(config.getfloat('default','pitchFilterID'))
+		self.yawFilterID.set(config.getfloat('default','yawFilterID'))
+		self.blurFilterID.set(config.getfloat('default','blurFilterID'))
 		self.detectionThread = config.getboolean('default','detectionThread')
 
 	def addImageList(self,row):
@@ -1159,7 +1143,7 @@ class GUI(tk.Tk):
 
 				else:
 					# no above 70, check if qualify to create new id
-					if abs(self.faceAttributesList[fid].yaw) <= self.yawFilterID and abs(self.faceAttributesList[fid].pitch) <= self.pitchFilterID and self.faceAttributesList[fid].sharpnessValue >= self.blurFilterID:
+					if abs(self.faceAttributesList[fid].yaw) <= self.yawFilterID.get() and abs(self.faceAttributesList[fid].pitch) <= self.pitchFilterID.get() and self.faceAttributesList[fid].sharpnessValue >= self.blurFilterID.get():
 						res = aws.index_faces(enc)
 						awsID = res['FaceRecords'][0]['Face']['FaceId']
 						self.tracker.faceID[fid] = awsID
@@ -1185,9 +1169,9 @@ class GUI(tk.Tk):
 
 			# if no id returned
 			else:
-				if abs(self.faceAttributesList[fid].yaw) <= self.yawFilterID and abs(
-						self.faceAttributesList[fid].pitch) <= self.pitchFilterID and self.faceAttributesList[
-					fid].sharpnessValue >= self.blurFilterID:
+				if abs(self.faceAttributesList[fid].yaw) <= self.yawFilterID.get() and abs(
+						self.faceAttributesList[fid].pitch) <= self.pitchFilterID.get() and self.faceAttributesList[
+					fid].sharpnessValue >= self.blurFilterID.get():
 
 					res = aws.index_faces(enc)
 					awsID = res['FaceRecords'][0]['Face']['FaceId']
@@ -1504,7 +1488,7 @@ class GUI(tk.Tk):
 					# if per >= (self.blurFilter/100):
 					# 	blur = False
 
-					if laplacian_val >= self.blurFilter:
+					if laplacian_val >= self.blurFilter.get():
 						blur = False
 
 					faceAttr.sharpnessValue = float(laplacian_val)
@@ -1521,10 +1505,10 @@ class GUI(tk.Tk):
 
 					saveImage('sharp_img',faceImg,self.num_face)
 
-					if abs(yaw) > self.yawFilter:
+					if abs(yaw) > self.yawFilter.get():
 						logger.warning('Face number {} is filtered as yaw angle ({}) exceeded yaw filter ({})'.format(self.num_face,abs(yaw),self.yawFilter))
 						continue
-					elif abs(pitch)>self.pitchFilter:
+					elif abs(pitch)>self.pitchFilter.get():
 						logger.warning('Face number {} is filtered as pitch angle ({}) exceeded pitch filter ({})'.format(self.num_face, abs(pitch), self.pitchFilter))
 						continue
 
