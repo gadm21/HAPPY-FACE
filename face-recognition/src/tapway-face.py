@@ -1446,6 +1446,8 @@ class GUI(tk.Tk):
 		return per, BlurExtent
 
 	def detectBlurLaplacian(self, img):
+		height, width, _ = img.shape
+		img = img[int(0.05*height):int(0.95*height),int(0.05*width):int(0.95*width)]
 		img = resizeImage(100,100,img)
 		image = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 		return cv2.Laplacian(image, cv2.CV_64F).var()
