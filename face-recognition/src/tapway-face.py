@@ -457,6 +457,7 @@ class GUI(tk.Tk):
 			self.blacklist.remove(awsid)
 			for fid in self.imageList:
 				imgLabel = self.imageList[fid]
+				fid = str(fid)
 				if fid in self.faceAttributesList:
 					if self.faceAttributesList[fid].awsID in self.blacklist:
 						imgLabel.configure(style="RB.TButton")
@@ -472,6 +473,7 @@ class GUI(tk.Tk):
 			self.blacklist.append(awsid)
 			for fid in self.imageList:
 				imgLabel = self.imageList[fid]
+				fid = str(fid)
 				if fid in self.faceAttributesList:
 					if self.faceAttributesList[fid].awsID in self.blacklist:
 						imgLabel.configure(style="RB.TButton")
@@ -539,7 +541,7 @@ class GUI(tk.Tk):
 			roll, pitch, yaw = self.getHeadPoseEstimation(faceimg)
 			logger.info('Detected a face for whitelist entry with pitch: {}, yaw: {}, blurriness: {}'.format(pitch,yaw,laplacian))
 			msg = True
-			if width<80 or height<80 or laplacian<self.blurFilterID or abs(pitch)>self.pitchFilterID or abs(yaw)>self.yawFilterID:
+			if width<80 or height<80 or laplacian<self.blurFilterID.get() or abs(pitch)>self.pitchFilterID.get() or abs(yaw)>self.yawFilterID.get():
 				cv2image = resizeImage(150, 150, faceimg)
 				cv2image = cv2.cvtColor(cv2image, cv2.COLOR_BGR2RGBA)
 
@@ -1014,7 +1016,7 @@ class GUI(tk.Tk):
 		for i in range(row):
 			imgLabel = tk.ttk.Button(self.frame.interior,image=imgtk,state='disable')
 			imgLabel.imgtk = imgtk
-			self.imageList[str(count)] = imgLabel
+			self.imageList[count] = imgLabel
 			count-=1
 		self.gridResetLayout()
 		logger.info('Image list with {} row has been created'.format(row))
@@ -1035,7 +1037,7 @@ class GUI(tk.Tk):
 
 		imgLabel.imgtk = imgtk
 
-		self.imageList[fid] = imgLabel
+		self.imageList[int(fid)] = imgLabel
 		self.gridResetLayout()
 
 	def gridResetLayout(self):
@@ -1498,7 +1500,7 @@ class GUI(tk.Tk):
 					logger.info('Attributes of detected face number {} are shaprness:{}, yaw:{}, pitch:{}'.format(self.num_face,laplacian_val,yaw,pitch))
 
 					if blur:
-						logger.warning('Blur image of face number {} is filter as it laplacian variance ({}) is less than threshold {}'.format(self.num_face,laplacian_val,self.blurFilter))
+						logger.warning('Blur image of face number {} is filter as it laplacian variance ({}) is less than threshold {}'.format(self.num_face,laplacian_val,self.blurFilter.get()))
 						# logger.warning('Blur image of face number {} is filtered as it per value ({}) is less than blur min zero filter {}'.format(self.num_face,per,(self.blurFilter/100)))
 						saveImage('blur_img',faceImg,self.num_face)
 						continue
@@ -1506,10 +1508,10 @@ class GUI(tk.Tk):
 					saveImage('sharp_img',faceImg,self.num_face)
 
 					if abs(yaw) > self.yawFilter.get():
-						logger.warning('Face number {} is filtered as yaw angle ({}) exceeded yaw filter ({})'.format(self.num_face,abs(yaw),self.yawFilter))
+						logger.warning('Face number {} is filtered as yaw angle ({}) exceeded yaw filter ({})'.format(self.num_face,abs(yaw),self.yawFilter.get()))
 						continue
 					elif abs(pitch)>self.pitchFilter.get():
-						logger.warning('Face number {} is filtered as pitch angle ({}) exceeded pitch filter ({})'.format(self.num_face, abs(pitch), self.pitchFilter))
+						logger.warning('Face number {} is filtered as pitch angle ({}) exceeded pitch filter ({})'.format(self.num_face, abs(pitch), self.pitchFilter.get()))
 						continue
 
 					faceAttr.roll = float(roll)
