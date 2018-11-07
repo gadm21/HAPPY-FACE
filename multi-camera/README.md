@@ -1,8 +1,11 @@
 # How to setup MySQL
 [link: https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-18-04]
 
-# Create Database + Table
-Refer to create.sql file and total 1 database and 3 table need to create.
+# Create Database + Table (Only First Time)
+Run the command to create database and related table
+```
+sudo mysql -u <username> -p < setup.sql
+```
 
 # How to run the code
 1. export python path

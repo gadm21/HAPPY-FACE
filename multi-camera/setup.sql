@@ -1,5 +1,7 @@
 CREATE DATABASE face;
 
+USE face;
+
 CREATE TABLE Demographic (
     ID int NOT NULL AUTO_INCREMENT,
     Gender char(1),
