@@ -1,25 +1,26 @@
 # How to setup MySQL
 [link: https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-18-04]
 
-# Create Database + Table
-Refer to create.sql file and total 1 database and 3 table need to create.
+# Create Database + Table (Only First Time)
+Run the command to create database and related table
+```
+sudo mysql -u <username> -p < setup.sql  
+```
 
 # How to run the code
-1. export python path
-refer to here:
-https://github.com/davidsandberg/facenet/wiki/Classifier-training-of-inception-resnet-v1
+```
+# Setup aws credentials  
+aws configure  
 
-2. setup aws credentials by running this command: aws configure
-
-3. Run those command:  
+# Installation   
 pip3 install -r requirements.txt  
-cd face-detect/facenet/src  
-python3 tapway-face.py  
 
-then the cropped image will save in face_img folder.
+# Run (Please make sure the MYSQL database is created)  
+cd multi-camera 
+python3 main.py  
+```
 
-Refer here for more details:
-https://github.com/davidsandberg/facenet
+then the cropped image will save in face_img folder. (this feauture not yet available)  
 
 # Speed Improvement (CPU)
 Compile tensorflow with AVX2 support  
@@ -41,11 +42,7 @@ AWS Documentation: http://boto3.readthedocs.io/en/latest/reference/services/reko
 Face++: https://console.faceplusplus.com/documents/5679127  
 
 # Blur Image Detection
-Blur Detection for Digital Images Using Wavelet Transform  
-Modify code from  
-[link: https://gist.github.com/dosas/4369287]  
-Paper:  
-[link: https://www.cs.cmu.edu/~htong/pdf/ICME04_tong.pdf]  
+Use Laplacian Transform  
 
 # Head Pose Estimation
 DeepGaze  
@@ -56,7 +53,7 @@ Use the pretrained caffe model for agenet and gendernet
 [link: https://talhassner.github.io/home/publication/2015_CVPR]
 
 # GUI
-Tkinter  
+Tkinter(might switch to PyGtk)  
 
 # Create Exe (Not Yet Done)
 PyInstaller
