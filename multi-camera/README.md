@@ -6,6 +6,19 @@ Run the command to create database and related table
 ```
 sudo mysql -u <username> -p < setup.sql  
 ```
+# Access Database
+```
+sudo mysql -u <username> -p
+
+# Select database
+use database face;
+
+# Check all tables in selected database
+show tables;
+
+# Retrieve data from table
+select * from Demographic;
+```
 
 # How to run the code
 ```
