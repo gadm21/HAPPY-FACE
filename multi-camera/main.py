@@ -63,7 +63,7 @@ class GUI(tk.Tk):
 			_,frame = cap.read()
 			height,width,_ = frame.shape
 			self.camera.append(cap)
-			print(height,width)
+
 			if self.fixSize:
 				self.nb.addTab(self.FIX_HEIGHT,self.FIX_WIDTH)
 			else:
