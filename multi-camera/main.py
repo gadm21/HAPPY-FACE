@@ -52,13 +52,23 @@ class GUI(tk.Tk):
 		self.menubar = menu.MenuBar(self)
 		self.config(menu=self.menubar)
 
+		self.FIX_HEIGHT = 480 #1280
+		self.FIX_WIDTH = 640 #1024
+
+		self.fixSize = True #True
+
 		for i in range(0,self.conf['totalCamera']):
 			cap = cv2.VideoCapture(self.conf['cameraSrc'][i])
 			### later need handle flag if no flag come in
 			_,frame = cap.read()
 			height,width,_ = frame.shape
 			self.camera.append(cap)
-			self.nb.addTab(height,width)
+			print(height,width)
+			if self.fixSize:
+				self.nb.addTab(self.FIX_HEIGHT,self.FIX_WIDTH)
+			else:
+				self.nb.addTab(height,width)
+			
 			self.frameCount.append(0)
 			tracker = track.Tracker()
 			tracker.videoFrameSize = frame.shape
@@ -83,7 +93,11 @@ class GUI(tk.Tk):
 			if (self.frameCount[index]%self.conf['frameInterval']) == 0:
 				self.detectFaceFlow(index,frame)
 
-			outputImg = frame.copy()
+			if self.fixSize:
+				outputImg = cv2.resize(frame,(self.FIX_WIDTH,self.FIX_HEIGHT))
+			else:	
+				outputImg = frame.copy()
+
 			self.drawTrackedFace(index,outputImg)
 			self.nb.display(index,outputImg)
 			self.frameCount[index] += 1
@@ -183,6 +197,14 @@ class GUI(tk.Tk):
 			y2 = int(position.bottom())
 
 			rect = (x1,y1,x2,y2)
+
+			if self.db['faceList'][fid] is None:
+				"""
+				this condition will happen if demographicFlow Thread pop up the faceList,
+				but the tracker not yet delete here.
+				"""
+				continue
+
 			awsID = self.db['faceList'][fid]['awsID']
 
 			if awsID is None:
