@@ -119,9 +119,8 @@ class GUI(tk.Tk):
 				faceImg = Util.cropFace(frame,(x1,y1,x2,y2))
 				faceObj = self.predict.filterFace(faceImg,self.conf.getFilter())
 
-				# oka 
-				# if faceObj['valid'] is False:
-				# 	continue
+				if faceObj['valid'] is False:
+					continue
 				faceObj['location'] = 'camera {}'.format(str(index))
 				### use lock to deal with multithread
 				with self.lock:
