@@ -12,6 +12,7 @@ class Database:
 		self.fid = -1
 		self.faceNameList = {}
 		self.faceList = {}
+		self.fidsToDelete = []
 		self.whitelist = {}
 		self.blacklist = []
 		self.savingImageData = {}

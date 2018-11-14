@@ -93,12 +93,12 @@ class GUI(tk.Tk):
 			if (self.frameCount[index]%self.conf['frameInterval']) == 0:
 				self.detectFaceFlow(index,frame)
 
-			if self.fixSize:
-				outputImg = cv2.resize(frame,(self.FIX_WIDTH,self.FIX_HEIGHT))
-			else:	
-				outputImg = frame.copy()
-
+			outputImg = frame.copy()
 			self.drawTrackedFace(index,outputImg)
+
+			if self.fixSize:
+				outputImg = cv2.resize(outputImg,(self.FIX_WIDTH,self.FIX_HEIGHT))
+
 			self.nb.display(index,outputImg)
 			self.frameCount[index] += 1
 		else:
@@ -119,8 +119,9 @@ class GUI(tk.Tk):
 				faceImg = Util.cropFace(frame,(x1,y1,x2,y2))
 				faceObj = self.predict.filterFace(faceImg,self.conf.getFilter())
 
-				if faceObj['valid'] is False:
-					continue
+				# oka 
+				# if faceObj['valid'] is False:
+				# 	continue
 				faceObj['location'] = 'camera {}'.format(str(index))
 				### use lock to deal with multithread
 				with self.lock:
@@ -198,7 +199,7 @@ class GUI(tk.Tk):
 
 			rect = (x1,y1,x2,y2)
 
-			if self.db['faceList'][fid] is None:
+			if fid not in self.db['faceList']:
 				"""
 				this condition will happen if demographicFlow Thread pop up the faceList,
 				but the tracker not yet delete here.
