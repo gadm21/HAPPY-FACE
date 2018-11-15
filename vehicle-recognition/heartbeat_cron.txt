@@ -1,1 +1,1 @@
-*/10 * * * * /home/nvidia/Desktop/tapway-ai/vehicle-recognition/heartbeat.py
+*/10 * * * * /home/admin/Desktop/tapway-ai/vehicle-recognition/heartbeat.py

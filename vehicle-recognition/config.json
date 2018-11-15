@@ -3,7 +3,7 @@
   "TEXTS": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ",
   "SCALE": 0.5,
   "CROP_YMAX": 1024,
-  "RTSP_FEED": "rtsp://admin:admin123@tapway1.dlinkddns.com:1234/cam/realmonitor?channel=1&subtype=0",
+  "RTSP_FEED": "rtsp://admin:admin123@tapway2.dahuaddns.com/cam/realmonitor?channel=1&subtype=0",
   "THRESHOLD": 2,
   "CROP_XMAX": 700,
   "WEIGHT": "model_weights.h5",
