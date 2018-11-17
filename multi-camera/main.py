@@ -15,7 +15,7 @@ import datetime
 from config import Config
 from util import Util
 
-import aws.rekognition as aws
+# import aws.rekognition as aws
 from database import Database
 
 class GUI(tk.Tk):
@@ -57,6 +57,8 @@ class GUI(tk.Tk):
 
 		self.fixSize = True #True
 
+		self.threadTask = []
+
 		for i in range(0,self.conf['totalCamera']):
 			cap = cv2.VideoCapture(self.conf['cameraSrc'][i])
 			### later need handle flag if no flag come in
@@ -85,12 +87,25 @@ class GUI(tk.Tk):
 		else:
 			for i in range(0,self.conf['totalCamera']):
 				self.showFrame(i)
-		
+
+	def cleanThreadTask(self):
+		for thread in self.threadTask:
+			if not thread.isAlive():
+				with self.lock:
+					self.threadTask.remove(thread)
+
+	def waitThreadTaskFinish(self):
+		for thread in self.threadTask:
+			with self.lock:
+				thread.join(1000)
+				self.threadTask.remove(thread)
+
 	def showFrame(self,index):
 		flag,frame = self.camera[index].read()
 		if flag == True:
 			self.tracker[index].deleteTrack(frame)
 			if (self.frameCount[index]%self.conf['frameInterval']) == 0:
+
 				self.detectFaceFlow(index,frame)
 
 			outputImg = frame.copy()
@@ -101,6 +116,8 @@ class GUI(tk.Tk):
 
 			self.nb.display(index,outputImg)
 			self.frameCount[index] += 1
+
+			self.cleanThreadTask()
 		else:
 			print('Camera {0} has no frame'.format(index+1))
 		self.cameraJobID[index] = self.nb.after(10,lambda :self.showFrame(index))
@@ -121,6 +138,8 @@ class GUI(tk.Tk):
 
 				if faceObj['valid'] is False:
 					continue
+
+				faceObj['faceConfidence'] = acc	
 				faceObj['location'] = 'camera {}'.format(str(index))
 				### use lock to deal with multithread
 				with self.lock:
@@ -133,9 +152,10 @@ class GUI(tk.Tk):
 					task = None
 					if self.conf['featureOption']==0:
 						task = threading.Thread(target=self.demographicFlow,args=([index,fid,faceImg]))
+						self.threadTask.append(task)
 					elif self.conf['featureOption']==1:
 						task = threading.Thread(target=self.recognizeFlow,args=([index,fid,faceImg]))
-					
+						self.threadTask.append(task)
 					task.start()
 
 	def updateImageList(self,fid,faceImg):
@@ -146,13 +166,18 @@ class GUI(tk.Tk):
 		self.imgListframe.addFaceToImageList(fid,self.db['faceList'][fid])
 
 	def demographicFlow(self,index,fid,faceImg):
-		faceObj = aws.Detection(faceImg)
+		if False:
+			faceObj = aws.Detection(faceImg)
+		else:
+			faceObj = self.predict.detectDemographicInfo(faceImg)
 
+		'''
 		# faceObj is None if exception happens in AWSDetection
 		if faceObj is None:
 			self.tracker[index].appendDeleteFid(fid)
 			self.db['faceList'].pop(fid, None)
 			return
+		'''
 
 		# Update the List
 		self.db['faceList'][fid]['awsID'] = str(fid)
@@ -198,12 +223,15 @@ class GUI(tk.Tk):
 
 			rect = (x1,y1,x2,y2)
 
+			'''
+			### this only useful if using aws.Detection
 			if fid not in self.db['faceList']:
 				"""
 				this condition will happen if demographicFlow Thread pop up the faceList,
 				but the tracker not yet delete here.
 				"""
 				continue
+			'''
 
 			awsID = self.db['faceList'][fid]['awsID']
 
@@ -220,8 +248,13 @@ class GUI(tk.Tk):
 
 	def _quit(self):
 		try:
+			self.waitThreadTaskFinish()
+
 			for i in self.cameraJobID.keys():
 				self.nb.after_cancel(self.cameraJobID[i])
+
+			self.waitThreadTaskFinish()
+
 			for camera in self.camera:
 				camera.release()
 
