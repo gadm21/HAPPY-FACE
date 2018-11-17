@@ -3,6 +3,7 @@ class Face(object):
 		self.valid = False
 		self.validRecognize = False
 		self.awsID = None
+		self.faceConfidence = None
 		self.yaw = None
 		self.roll = None
 		self.pitch = None

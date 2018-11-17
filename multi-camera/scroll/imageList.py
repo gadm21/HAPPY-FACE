@@ -55,6 +55,9 @@ class Popup(tk.Toplevel):
 		similarityFrame = ttk.Label(frame,text='{0:15}\t: {1}'.format('Similarity',faceObj['similarity']))
 		similarityFrame.pack(fill=tk.X,padx=5)
 
+		faceConfidenceFrame = ttk.Label(frame,text='{0:15}\t: {1}'.format('Face Confidence',faceObj['faceConfidence']))
+		faceConfidenceFrame.pack(fill=tk.X,padx=5)
+
 		rollFrame = ttk.Label(frame,text='{0:15}\t: {1}'.format('Roll(degree)',faceObj['roll']))
 		rollFrame.pack(fill=tk.X,padx=5)
 
