@@ -4,6 +4,7 @@ import math
 class Util:
 	@staticmethod
 	def drawOverlay(text,rect,rectColor,image):
+		roundRect = True
 		x1,y1,x2,y2 = rect
 		textSize = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
 		textX = int((x1+x2)/2 - textSize[0]/2)
@@ -11,9 +12,61 @@ class Util:
 
 		textLoc = (textX, textY)
 
-		cv2.rectangle(image, (rect[0], rect[1]),
-						(rect[2] ,rect[3]),
-						rectColor ,2)
+		p1 = (x1,y1)
+		p2 = (x2,y1)
+		p3 = (x2,y2)
+		p4 = (x1,y2)
+
+		cornerRadius = int((x2-x1)/10)
+		
+		if roundRect:
+			cv2.line(image,
+					(p1[0]+cornerRadius,p1[1]),
+					(p2[0]-cornerRadius,p2[1]),
+					rectColor,2)
+
+			cv2.line(image,
+					(p2[0],p2[1]+cornerRadius),
+					(p3[0],p3[1]-cornerRadius),
+					rectColor,2)
+
+			cv2.line(image,
+					(p4[0]+cornerRadius,p4[1]),
+					(p3[0]-cornerRadius,p3[1]),
+					rectColor,2)
+
+			cv2.line(image,
+					(p1[0],p1[1]+cornerRadius),
+					(p4[0],p4[1]-cornerRadius),
+					rectColor,2)
+
+			cv2.ellipse(image,
+					(p1[0]+cornerRadius,p1[1]+cornerRadius),
+					(cornerRadius,cornerRadius),
+					180,0,90,
+					rectColor,2,lineType=cv2.LINE_AA)
+
+			cv2.ellipse(image,
+					(p2[0]-cornerRadius,p2[1]+cornerRadius),
+					(cornerRadius,cornerRadius),
+					270,0,90,
+					rectColor,2,lineType=cv2.LINE_AA)
+
+			cv2.ellipse(image,
+					(p3[0]-cornerRadius,p3[1]-cornerRadius),
+					(cornerRadius,cornerRadius),
+					0,0,90,
+					rectColor,2,lineType=cv2.LINE_AA)
+
+			cv2.ellipse(image,
+					(p4[0]+cornerRadius,p4[1]-cornerRadius),
+					(cornerRadius,cornerRadius),
+					90,0,90,
+					rectColor,2,lineType=cv2.LINE_AA)
+		else:
+			cv2.rectangle(image, (rect[0], rect[1]),
+							(rect[2] ,rect[3]),
+							rectColor ,2)
 
 		cv2.putText(image, text, textLoc,
 					cv2.FONT_HERSHEY_SIMPLEX,

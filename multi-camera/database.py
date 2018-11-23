@@ -1,5 +1,8 @@
 import mysql.connector
 import cv2
+import sys
+import os
+import threading
 
 class Database:
 	def __init__(self,host,user,password,database):
@@ -16,6 +19,7 @@ class Database:
 		self.whitelist = {}
 		self.blacklist = []
 		self.savingImageData = {}
+		self.lock = threading.Lock()
 
 	def __getitem__(self,key):
 		return getattr(self,key)
@@ -37,25 +41,26 @@ class Database:
 			#stmt3 = "INSERT INTO Image (ID,ImageBlob) VALUES (%s,%s);"
 
 			gender = faceObj['gender']
-			genderConfidence = faceObj['genderConfidence']
+			genderConfidence = float(faceObj['genderConfidence'])
 			ageLow = faceObj['ageLow']
 			ageHigh = faceObj['ageHigh']
 
 			param1 = (gender,genderConfidence,ageLow,ageHigh)
 			
-			cursor = self.db.cursor()
-			cursor.execute(stmt1,param1)
-
-			id = cursor.lastrowid
-			location = faceObj['location']
-
-			param2 = (id,location)
-
-			cursor.execute(stmt2,param2)
-			cursor.close()
-			
-			self.db.commit()
+			with self.lock:
+				cursor = self.db.cursor()
+				cursor.execute(stmt1,param1,multi=True)
+				id = cursor.lastrowid
+				location = faceObj['location']
+				param2 = (id,location)
+				cursor.execute(stmt2,param2,multi=True)
+				cursor.close()
+				
+				self.db.commit()
 		except Exception as e:
+			exc_type, exc_obj, exc_tb = sys.exc_info()
+			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+			print(exc_type, fname, exc_tb.tb_lineno)
 			print("[MYSQL]",e)
 
 	def close(self):

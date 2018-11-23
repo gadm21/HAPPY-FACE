@@ -30,7 +30,7 @@ factor = 0.709
 MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
 age_list=[[0, 2],[4, 6],[8, 12],[15, 20],[25, 32],[38, 43],[48, 53],[60, 100]]
 
-gender_list = ['Male', 'Female']
+gender_list = ['M', 'F']
 
 def resizeImage(sizeX,sizeY,img):
 	height,width,_ = img.shape
@@ -141,20 +141,36 @@ class Predict:
 		roll_predicted = torch.sum(roll_predicted.data[0] * self.idx_tensor) * 3 - 99
 		return roll_predicted, pitch_predicted, yaw_predicted
 
+	def detectDemographicInfo(self,faceImg):
+		faceObj = face.Face()
+		
+		(ageLow,ageHigh,ageScore) = self.detectAge(faceImg)
+		(gender,genderScore) = self.detectGender(faceImg)
+
+		faceObj['ageLow'] = ageLow
+		faceObj['ageHigh'] = ageHigh
+		faceObj['gender'] = gender
+		faceObj['genderConfidence'] = genderScore
+
+		return faceObj
+
 	def detectAge(self,faceImg):
 		blob = cv2.dnn.blobFromImage(faceImg, 1, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
 		self.ageNet.setInput(blob)
 		age_preds = self.ageNet.forward()
-		age = age_list[age_preds[0].argmax()]
-
-		return age[0],age[1]
+		index = age_preds[0].argmax()
+		age = age_list[index]
+		score = age_preds[0][index]
+		return age[0],age[1],score
 
 	def detectGender(self,faceImg):
 		blob = cv2.dnn.blobFromImage(faceImg, 1, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
 		self.genderNet.setInput(blob)
 		gender_preds = self.genderNet.forward()
-		gender = gender_list[gender_preds[0].argmax()]
-		return gender		
+		index = gender_preds[0].argmax()
+		gender = gender_list[index]
+		score = gender_preds[0][index]
+		return gender,score		
 
 if __name__ == '__main__':
 	predict = Predict()
