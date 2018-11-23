@@ -9,6 +9,6 @@
   "WEIGHT": "model_weights.h5",
   "MODEL": "model.json",
   "CROP_XMIN": 200,
-  "MEMORY": 8,
+  "MEMORY": 5,
   "CHANNEL": 1
 }

@@ -1,2 +1,3 @@
 # Must be the fullpath to where the frames are saved
-SAVE_DIR = "/home/admin/Desktop/tapway-ai/vehicle-recognition/frames/"
+#for frontend usage save it to frontend/frames folder
+SAVE_DIR = "/var/www/html/demo/frames/"

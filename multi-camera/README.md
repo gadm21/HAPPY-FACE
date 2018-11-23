@@ -11,7 +11,7 @@ sudo mysql -u <username> -p < setup.sql
 sudo mysql -u <username> -p
 
 # Select database
-use database face;
+use face;
 
 # Check all tables in selected database
 show tables;
