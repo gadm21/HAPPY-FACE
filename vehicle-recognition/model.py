@@ -13,6 +13,11 @@ from keras.models import model_from_json
 from PIL import Image, ImageDraw
 import cv2
 
+import pymysql.cursors
+
+
+
+
 import server_settings # vehicle recognition server's shared variables between model and worker
 
 class ModelParams:
@@ -180,6 +185,7 @@ def inference():
             if current_text == potential:
                 current_count = current_count + 1
             else:
+            # elif current_count <= 1 :
                 current_count = current_count - 1
 
         current_count = min(current_count, ModelParams.MEMORY) # Cap memory.
@@ -213,7 +219,45 @@ def save_frame(img, carplate):
     mac = ':'.join(['{:02x}'.format((uuid.getnode() >> i) & 0xff) for i in range(0,8*6,8)][::-1])
     imgname = '{}_{}_{}_{}.png'.format(mac, st, carplate.plate, bbox)
     fullpath = os.path.join(server_settings.SAVE_DIR, imgname)
+
     cv2.imwrite(fullpath, img)
+
+    save_to_mysql(mac, st, carplate.plate, imgname)
+
+
+def save_to_mysql(mac, st, carplate, img):
+
+    # item = {
+    #     'mac': mac,
+    #     'plate_id': carplate,
+    #     'frame_img_path': img,
+    #     'timestamp': st
+    # }
+    item = (mac, carplate, img, st)
+
+    cnx = False
+
+    try:
+        cnx = pymysql.connect(host='localhost',
+                               user='root',
+                               password='root',
+                               db='vehicledb',
+                               charset='utf8mb4',
+                               cursorclass=pymysql.cursors.DictCursor)
+        with cnx.cursor() as cursor:
+            v_insert = (
+                "INSERT INTO v_logs (mac, plate_id, frame_img_path, timestamp) VALUES (%s, %s, %s, %s) "
+                )
+
+            cursor.execute(v_insert, item)
+            cnx.commit()
+        print('new vehicle record added to my sql')
+
+    finally:
+        if cnx:
+            cnx.close()
+
+            
 
 class Rect(object):
     """
