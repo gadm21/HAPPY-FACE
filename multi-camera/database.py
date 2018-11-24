@@ -49,14 +49,14 @@ class Database:
 			
 			with self.lock:
 				cursor = self.db.cursor()
-				cursor.execute(stmt1,param1,multi=True)
+				cursor.execute(stmt1,param1)
 				id = cursor.lastrowid
 				location = faceObj['location']
 				param2 = (id,location)
-				cursor.execute(stmt2,param2,multi=True)
+				cursor.execute(stmt2,param2)
 				cursor.close()
-				
 				self.db.commit()
+				
 		except Exception as e:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
 			fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
