@@ -1,37 +1,24 @@
 # tapway-ai
 for all AI development codes
 
-# AI model training 
+## Face Recognition
 
-## NOTE: for Vehicle Recognition module (can be applied to other modules)
+Previous development regarding single camera face recognition
 
-1. Image sources
+Status: Stopped while we focus on multi camera mode
 
-Store label_img XML in following folders format: datas/{folder_name}/labels/{}.xml
-Store images in following folders format: datas/{folder_name}/images/{}.jpg
+## Multi Camera
 
+Current development regarding multi camera face recognition
 
-2. Run datas.py to prepare training data.
+Status: Active
 
-This will process the images:
+## Vehicle Recognition
 
-- resize
-- change to gray scale
-- etc
+Current development regarding using self-trained model based on YOLO for license plate recognition
 
-This will prepare the labels:
+Status: Stopped 
 
-- convert label into appropriate format for TensorFlow.
+## Vehicle Training
 
-The output will be a file called: datas.pickle.
-
-
-3. Run train.py to train data in datas.pickle.
-
-- Model files will be generated in models/ folder.
-
-
-4. Model tuning.
-
-- Check the training results.
-- Depending on the validation accuracy / loss … tune the model parameters as required.
+Current development regarding training a model based on YOLO for license plate recognition
