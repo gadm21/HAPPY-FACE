@@ -3,6 +3,8 @@ SUMMARY OF FILES
 
 1 ### vision.py
 
+THIS IS CURRENTLY NOT USED
+
 Takes original images from camera and pass it to Google Vision API.
 Google Vision API will return whatever it can label.
 Save the JSON output from Google Vision in vision/ folder.
