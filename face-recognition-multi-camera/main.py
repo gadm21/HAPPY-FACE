@@ -17,6 +17,7 @@ from util import Util
 
 # import aws.rekognition as aws
 from database import Database
+from memory import Memory
 
 class GUI(tk.Tk):
 	def __init__(self,*args,**kwargs):
@@ -59,6 +60,9 @@ class GUI(tk.Tk):
 
 		self.threadTask = []
 
+		self.memory = Memory()
+		self.memory.run()
+
 		for i in range(0,self.conf['totalCamera']):
 			cap = cv2.VideoCapture(self.conf['cameraSrc'][i])
 			### later need handle flag if no flag come in
@@ -83,6 +87,7 @@ class GUI(tk.Tk):
 			for i in range(0,self.conf['totalCamera']):
 				thread = threading.Thread(target=self.showFrame,args=([i]))
 				self.threads.append(thread)
+				self.threads[i].daemon = True
 				self.threads[i].start()
 		else:
 			for i in range(0,self.conf['totalCamera']):
@@ -120,7 +125,11 @@ class GUI(tk.Tk):
 			self.cleanThreadTask()
 		else:
 			print('Camera {0} has no frame'.format(index+1))
-		self.cameraJobID[index] = self.nb.after(10,lambda :self.showFrame(index))
+		if self.memory.checkMemory():
+			self.cameraJobID[index] = self.nb.after(10,lambda :self.showFrame(index))
+		else:
+			print('Memory Full! Program Closing Now..')
+			self._quit()
 
 	def detectFaceFlow(self,index,frame):
 		bounding_boxes = self.predict.detectFace(frame)
@@ -248,18 +257,19 @@ class GUI(tk.Tk):
 
 	def _quit(self):
 		try:
-			self.waitThreadTaskFinish()
+			# self.waitThreadTaskFinish()
 
 			for i in self.cameraJobID.keys():
 				self.nb.after_cancel(self.cameraJobID[i])
 
-			self.waitThreadTaskFinish()
+			# self.waitThreadTaskFinish()
 
 			for camera in self.camera:
 				camera.release()
 
-			for thread in self.threads:
-				thread.join()
+			# for thread in self.threads:
+			# 	if thread.isAlive():
+			# 		thread.join()
 			
 			self.db.close()
 			self.destroy()
