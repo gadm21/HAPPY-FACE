@@ -19,20 +19,22 @@ def setupLogger(name,logFile,level=logging.INFO):
 
 class Memory:
     def __init__(self):
+        self.timeInterval = 30
         self.gpuMemoryFull = False
         self.cpuMemoryFull = False
         self.cpuLogger = setupLogger('cpuLogger','log/cpu.log')
         self.gpuLogger = setupLogger('gpuLogger','log/gpu.log')
+        self.cpuMemoryThreshold = 2400000
 
     def cpuInfo(self):
         memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         msg = 'CPU Memory: {0}{1}'.format(memory,'kB')
         self.cpuLogger.info(msg)
-        if memory > 700000:
+        if memory > self.cpuMemoryThreshold:
             self.cpuLogger.info('Memory above threshold')
             self.cpuMemoryFull = True
             return
-        time.sleep(2)
+        time.sleep(self.timeInterval)
         self.cpuInfo()
 
     def gpuInfo(self):
@@ -43,7 +45,7 @@ class Memory:
         else:
             msg = 'No GPU available'
             self.gpuLogger.info(msg)
-        time.sleep(2)
+        time.sleep(self.timeInterval)
         self.gpuInfo()
 
     def checkMemory(self):

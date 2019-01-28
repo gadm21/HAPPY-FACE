@@ -101,6 +101,11 @@ class VerticalScrolledFrame:
 		imgLabel.imgtk = faceObj['imgtk']
 
 		self.imageList[fid] = imgLabel
+		
+		### limit image list size
+		if fid > 19:
+			del self.imageList[fid-20]
+
 		self.gridResetLayout()
 
 	'''
@@ -151,7 +156,7 @@ if __name__ == "__main__":
 	img = Image.fromarray(cv2image)
 	faceObj['imgtk'] = ImageTk.PhotoImage(image=img)
 
-	for i in range(10):
+	for i in range(200):
 		frame.addFaceToImageList(i,faceObj)
 		
 	root.mainloop()
