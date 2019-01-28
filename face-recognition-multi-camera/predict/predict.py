@@ -32,6 +32,8 @@ age_list=[[0, 2],[4, 6],[8, 12],[15, 20],[25, 32],[38, 43],[48, 53],[60, 100]]
 
 gender_list = ['M', 'F']
 
+detectAngle = False 
+
 def resizeImage(sizeX,sizeY,img):
 	height,width,_ = img.shape
 	scaleY = sizeY/height
@@ -62,24 +64,25 @@ class Predict:
 			curPath+"/models/gender/deploy.prototxt",
 			curPath+"/models/gender/gender_net.caffemodel")
 
-		self.cudaAvailable = torch.cuda.is_available()
-		self.model = hopenet.Hopenet(torchvision.models.resnet.Bottleneck, [3, 4, 6, 3], 66)
-		self.transformations = transforms.Compose([transforms.Resize(224),
-												   transforms.CenterCrop(224), transforms.ToTensor(),
-												   transforms.Normalize(mean=[0.485, 0.456, 0.406],
-																		std=[0.229, 0.224, 0.225])])
-		if self.cudaAvailable:
-			saved_state_dict = torch.load(curPath+'/hopenet/hopenet_robust_alpha1.pkl')
-			self.model.load_state_dict(saved_state_dict)
-			self.model.cuda()
-			self.idx_tensor = [idx for idx in range(66)]
-			self.idx_tensor = torch.FloatTensor(self.idx_tensor).cuda()
-		else:
-			saved_state_dict = torch.load(curPath+'/hopenet/hopenet_robust_alpha1.pkl',map_location='cpu')
-			self.model.load_state_dict(saved_state_dict)
-			self.idx_tensor = [idx for idx in range(66)]
-			self.idx_tensor = torch.FloatTensor(self.idx_tensor)
-		self.model.eval()
+		if detectAngle:
+			self.cudaAvailable = torch.cuda.is_available()
+			self.model = hopenet.Hopenet(torchvision.models.resnet.Bottleneck, [3, 4, 6, 3], 66)
+			self.transformations = transforms.Compose([transforms.Resize(224),
+													transforms.CenterCrop(224), transforms.ToTensor(),
+													transforms.Normalize(mean=[0.485, 0.456, 0.406],
+																			std=[0.229, 0.224, 0.225])])
+			if self.cudaAvailable:
+				saved_state_dict = torch.load(curPath+'/hopenet/hopenet_robust_alpha1.pkl')
+				self.model.load_state_dict(saved_state_dict)
+				self.model.cuda()
+				self.idx_tensor = [idx for idx in range(66)]
+				self.idx_tensor = torch.FloatTensor(self.idx_tensor).cuda()
+			else:
+				saved_state_dict = torch.load(curPath+'/hopenet/hopenet_robust_alpha1.pkl',map_location='cpu')
+				self.model.load_state_dict(saved_state_dict)
+				self.idx_tensor = [idx for idx in range(66)]
+				self.idx_tensor = torch.FloatTensor(self.idx_tensor)
+			self.model.eval()
 
 	def filterFace(self,faceImg,conf):
 		faceObj = face.Face()
@@ -90,20 +93,23 @@ class Predict:
 		if laplacian < conf['blurFilter']:
 			return faceObj
 
-		roll,pitch,yaw = self.detectAngle(faceImg)
+		if detectAngle:
+			roll,pitch,yaw = self.detectAngle(faceImg)
 
-		if abs(pitch) > conf['pitchFilter'] or abs(yaw) > conf['yawFilter']:
-			return faceObj
+			if abs(pitch) > conf['pitchFilter'] or abs(yaw) > conf['yawFilter']:
+				return faceObj
 
-		if (abs(yaw) <= conf['yawFilterID'] and abs(pitch) <= conf['pitchFilterID'] 
-			and laplacian >= conf['blurFilterID']):
-			faceObj['validRecognize'] = True
+			if (abs(yaw) <= conf['yawFilterID'] and abs(pitch) <= conf['pitchFilterID'] 
+				and laplacian >= conf['blurFilterID']):
+				faceObj['validRecognize'] = True
 
 		faceObj['valid'] = True
 		faceObj['sharpness'] = float(laplacian)
-		faceObj['roll'] = float(roll)
-		faceObj['pitch'] = float(pitch)
-		faceObj['yaw'] = float(yaw)
+
+		if detectAngle:
+			faceObj['roll'] = float(roll)
+			faceObj['pitch'] = float(pitch)
+			faceObj['yaw'] = float(yaw)
 
 		return faceObj
 
