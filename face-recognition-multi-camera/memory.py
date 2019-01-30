@@ -24,7 +24,7 @@ class Memory:
         self.cpuMemoryFull = False
         self.cpuLogger = setupLogger('cpuLogger','log/cpu.log')
         self.gpuLogger = setupLogger('gpuLogger','log/gpu.log')
-        self.cpuMemoryThreshold = 2400000
+        self.cpuMemoryThreshold = 2350000
 
     def cpuInfo(self):
         memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
