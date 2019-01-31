@@ -1,4 +1,5 @@
-import resource
+# import resource
+import psutil
 import GPUtil
 import threading
 import time
@@ -24,13 +25,15 @@ class Memory:
         self.cpuMemoryFull = False
         self.cpuLogger = setupLogger('cpuLogger','log/cpu.log')
         self.gpuLogger = setupLogger('gpuLogger','log/gpu.log')
-        self.cpuMemoryThreshold = 2350000
+        self.cpuFreeMemoryThreshold = 100000000
 
     def cpuInfo(self):
-        memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        msg = 'CPU Memory: {0}{1}'.format(memory,'kB')
+        # memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        # msg = 'CPU Memory: {0}{1}'.format(memory,'kB')
+        memory = psutil.virtual_memory().free
+        msg = 'CPU Free Memory: {0}{1}'.format(memory,'B')
         self.cpuLogger.info(msg)
-        if memory > self.cpuMemoryThreshold:
+        if memory < self.cpuFreeMemoryThreshold:
             self.cpuLogger.info('Memory above threshold')
             self.cpuMemoryFull = True
             return

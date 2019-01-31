@@ -35,6 +35,17 @@ python3 main.py
 
 then the cropped image will save in face_img folder. (this feauture not yet available)  
 
+# Makefile  
+To make the command simplify, makefile was used.
+```
+# Normal run script
+make run
+# Long running script (autorestart if memory full)
+make long-run
+# Clean log
+make clean-log
+```
+
 # Speed Improvement (CPU)
 Compile tensorflow with AVX2 support  
 You can built own tensorflow source code wheel file also. (take some time)  
