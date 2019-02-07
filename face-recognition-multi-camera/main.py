@@ -63,6 +63,8 @@ class GUI(tk.Tk):
 		self.memory = Memory()
 		self.memory.run()
 
+		self.noFrame = 0
+
 		for i in range(0,self.conf['totalCamera']):
 			cap = cv2.VideoCapture(self.conf['cameraSrc'][i])
 			### later need handle flag if no flag come in
@@ -108,6 +110,7 @@ class GUI(tk.Tk):
 	def showFrame(self,index):
 		flag,frame = self.camera[index].read()
 		if flag == True:
+			self.noFrame = 0
 			self.tracker[index].deleteTrack(frame)
 			if (self.frameCount[index]%self.conf['frameInterval']) == 0:
 
@@ -125,6 +128,10 @@ class GUI(tk.Tk):
 			self.cleanThreadTask()
 		else:
 			print('Camera {0} has no frame'.format(index+1))
+			self.noFrame = self.noFrame+1
+			if self.noFrame >= 60:
+				print('No frame issue detected. Restart program')
+				self._quit()
 		if self.memory.checkMemory():
 			self.cameraJobID[index] = self.nb.after(10,lambda :self.showFrame(index))
 		else:
