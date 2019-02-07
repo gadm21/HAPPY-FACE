@@ -78,7 +78,7 @@ class Tracker:
 			relativeOutScreen = self.getRelativeOutScreen(fid)
 
 			if relativeOutScreen > self.outOfScreenThreshold:
-				print("Face Out of Screen")
+				# print("Face Out of Screen")
 				self.fidsToDelete.append(fid)
 
 		while len(self.fidsToDelete) > 0:
