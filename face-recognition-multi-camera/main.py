@@ -160,6 +160,7 @@ class GUI(tk.Tk):
 				### use lock to deal with multithread
 				with self.lock:
 					fid = self.db.generateID()
+					print('fid {} created with acquire lock'.format(fid))
 					self.tracker[index].createTrack(frame,(x1,y1,x2,y2),fid)
 					self.db.addFace(fid,faceObj)
 					faceImg = Util.cropFace(frame,(x1,y1,x2,y2),crop_factor=self.crop_factor,minHeight=80,minWidth=80)
@@ -173,6 +174,7 @@ class GUI(tk.Tk):
 						task = threading.Thread(target=self.recognizeFlow,args=([index,fid,faceImg]))
 						self.threadTask.append(task)
 					task.start()
+					print('fid {} released'.format(fid))
 
 	def updateImageList(self,fid,faceImg):
 		cv2image = Util.resizeImage(100,100,faceImg)

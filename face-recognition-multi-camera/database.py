@@ -51,11 +51,13 @@ class Database:
 				cursor = self.db.cursor()
 				cursor.execute(stmt1,param1)
 				id = cursor.lastrowid
+				print('db id {} created with acquire lock'.format(id))
 				location = faceObj['location']
 				param2 = (id,location)
 				cursor.execute(stmt2,param2)
 				cursor.close()
 				self.db.commit()
+				print('db id {} released'.format(id))
 				
 		except Exception as e:
 			exc_type, exc_obj, exc_tb = sys.exc_info()
