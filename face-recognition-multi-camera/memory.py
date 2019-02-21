@@ -28,28 +28,26 @@ class Memory:
         self.cpuFreeMemoryThreshold = 100000000
 
     def cpuInfo(self):
-        # memory = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        # msg = 'CPU Memory: {0}{1}'.format(memory,'kB')
-        memory = psutil.virtual_memory().free
-        msg = 'CPU Free Memory: {0}{1}'.format(memory,'B')
-        self.cpuLogger.info(msg)
-        if memory < self.cpuFreeMemoryThreshold:
-            self.cpuLogger.info('Memory above threshold')
-            self.cpuMemoryFull = True
-            return
-        time.sleep(self.timeInterval)
-        self.cpuInfo()
+        while True:
+            memory = psutil.virtual_memory().free
+            msg = 'CPU Free Memory: {0}{1}'.format(memory,'B')
+            self.cpuLogger.info(msg)
+            if memory < self.cpuFreeMemoryThreshold:
+                self.cpuLogger.info('Memory above threshold')
+                self.cpuMemoryFull = True
+                break
+            time.sleep(self.timeInterval)
 
     def gpuInfo(self):
-        gpus = GPUtil.getGPUs()
-        if len(gpus) > 0:
-            msg = 'GPU Free Memory: {0}{1}'.format(gpus[0].memoryFree,'MB')
-            self.gpuLogger.info(msg)
-        else:
-            msg = 'No GPU available'
-            self.gpuLogger.info(msg)
-        time.sleep(self.timeInterval)
-        self.gpuInfo()
+        while True:
+            gpus = GPUtil.getGPUs()
+            if len(gpus) > 0:
+                msg = 'GPU Free Memory: {0}{1}'.format(gpus[0].memoryFree,'MB')
+                self.gpuLogger.info(msg)
+            else:
+                msg = 'No GPU available'
+                self.gpuLogger.info(msg)
+            time.sleep(self.timeInterval)
 
     def checkMemory(self):
         result = not self.gpuMemoryFull and not self.cpuMemoryFull

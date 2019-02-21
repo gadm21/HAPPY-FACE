@@ -266,22 +266,26 @@ class GUI(tk.Tk):
 
 	def _quit(self):
 		try:
+			print('Quiting the program')
 			# self.waitThreadTaskFinish()
 
 			for i in self.cameraJobID.keys():
 				self.nb.after_cancel(self.cameraJobID[i])
 
 			# self.waitThreadTaskFinish()
+			print('Releasing cameras')
 
 			for camera in self.camera:
 				camera.release()
-
+				
+			print('All cameras released')
 			# for thread in self.threads:
 			# 	if thread.isAlive():
 			# 		thread.join()
 			
 			self.db.close()
 			self.destroy()
+			print('Successful Quit')
 		except Exception as e:
 			print(e)
 
