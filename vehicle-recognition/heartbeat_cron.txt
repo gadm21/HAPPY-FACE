@@ -1,1 +1,0 @@
-*/10 * * * * /home/admin/Desktop/tapway-ai/vehicle-recognition/heartbeat.py
