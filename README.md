@@ -29,7 +29,6 @@ aws configure
 pip3 install -r requirements.txt  
 
 # Run (Please make sure the MYSQL database is created)  
-cd multi-camera 
 python3 main.py  
 ```
 
