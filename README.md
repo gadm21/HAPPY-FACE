@@ -2,9 +2,13 @@
 [link: https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-18-04]
 
 # Create Database + Table (Only First Time)
+
+Put your username and password of the MySql DB file `named` config.ini
+
 Run the command to create database and related table
-```
+
 sudo mysql -u <username> -p < setup.sql  
+
 ```
 # Access Database
 ```
