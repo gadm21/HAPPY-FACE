@@ -1,3 +1,11 @@
+# Important for this branch
+Download Emotion Classification CNN - RGB from https://gist.github.com/GilLevi/54aee1b8b0397721aa4b
+OR caffemodel_url: https://drive.google.com/open?id=0BydFau0VP3XSNVYtWnNPMU1TOGM
+deploy_file: https://drive.google.com/open?id=0BydFau0VP3XSOFp4Ri1ITzZuUkk
+
+*Save the model to **predict/models/emotion** folder*
+```
+```
 # How to setup MySQL
 [link: https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-18-04]
 
@@ -18,6 +26,9 @@ show tables;
 
 # Retrieve data from table
 select * from Demographic;
+
+# Retrieve exit time data from table
+select * from FaceExitTime;
 ```
 
 # How to run the code
