@@ -34,9 +34,10 @@ class Database:
 	def addFace(self,fid,faceObj):
 		self.faceList[fid] = faceObj
 
+	# store data to the tables
 	def addFaceToDemographic(self,faceObj):
 		try:
-			stmt1 = "INSERT INTO Demographic (Gender,GenderConfidence,AgeLow,AgeHigh) VALUES (%s,%s,%s,%s);"
+			stmt1 = "INSERT INTO Demographic (Gender,GenderConfidence,Emotion,AgeLow,AgeHigh,ExitedTime) VALUES (%s,%s,%s,%s,%s,%s);"
 			stmt2 = "INSERT INTO Info (ID,Location) VALUES (%s,%s);"
 			#stmt3 = "INSERT INTO Image (ID,ImageBlob) VALUES (%s,%s);"
 
@@ -44,8 +45,10 @@ class Database:
 			genderConfidence = float(faceObj['genderConfidence'])
 			ageLow = faceObj['ageLow']
 			ageHigh = faceObj['ageHigh']
+			emotion = faceObj['emotion']
+			exitedTime = None
 
-			param1 = (gender,genderConfidence,ageLow,ageHigh)
+			param1 = (gender,genderConfidence,emotion,ageLow,ageHigh,exitedTime)
 			
 			with self.lock:
 				cursor = self.db.cursor()
@@ -69,4 +72,4 @@ class Database:
 		self.db.close()
 
 if __name__ == '__main__':
-	db = Database('localhost','oka','oka12345','face')
+	db = Database('localhost','root','tapway','face')

@@ -79,6 +79,9 @@ class Popup(tk.Toplevel):
 		ageRangeFrame = ttk.Label(frame,text='{0:15}\t: {1} - {2}'.format('Age Range',faceObj['ageLow'],faceObj['ageHigh']))
 		ageRangeFrame.pack(fill=tk.X,padx=5)
 
+		emotionFrame = ttk.Label(frame, text='{0:15}\t: {1}'.format('Emotion', faceObj['emotion']))
+		emotionFrame.pack(fill=tk.X, padx=5)
+
 		detectedTimeFrame = ttk.Label(frame, text='{0:15}\t: {1}'.format('Detected Time',faceObj['detectedTime']))
 		detectedTimeFrame.pack(fill=tk.X, padx=5)
 

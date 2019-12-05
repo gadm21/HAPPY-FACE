@@ -15,7 +15,7 @@ import datetime
 from config import Config
 from util import Util
 
-# import aws.rekognition as aws
+import aws.rekognition as aws
 from database import Database
 from memory import Memory
 
@@ -203,6 +203,7 @@ class GUI(tk.Tk):
 		self.db['faceList'][fid]['genderConfidence'] = faceObj['genderConfidence']
 		self.db['faceList'][fid]['ageLow'] = faceObj['ageLow']
 		self.db['faceList'][fid]['ageHigh'] = faceObj['ageHigh']
+		self.db['faceList'][fid]['emotion'] = faceObj['emotion']
 		# self.db['faceList'][fid]['blob'] = faceObj['blob']
 
 		self.updateImageList(fid,faceImg)

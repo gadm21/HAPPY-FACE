@@ -11,6 +11,8 @@ class Face(object):
 		self.similarity = 'New Face'
 		self.gender = None
 		self.genderConfidence = None
+		self.emotion = None
+		self.exitedTime = None
 		self.ageLow = None
 		self.ageHigh = None
 		self.detectedTime = None

@@ -2,13 +2,21 @@ CREATE DATABASE face;
 
 USE face;
 
+CREATE TABLE FaceExitTime (
+    ID int NOT NULL AUTO_INCREMENT,
+    ExitedTime TIME,
+    PRIMARY KEY (ID)
+);
+
 CREATE TABLE Demographic (
     ID int NOT NULL AUTO_INCREMENT,
     Gender char(1),
     GenderConfidence float(2),
+    Emotion char(20),
     AgeLow int,
     AgeHigh int,
     Date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ExitedTime TIME,
     PRIMARY KEY (ID)
 );
 

@@ -6,7 +6,7 @@ curPath = os.path.basename(os.getcwd())
 curPath = os.path.dirname(__file__)
 sys.path.insert(0, curPath)
 
-from popup import configureIP, featureOption,headPose, filterParameter, filterIDParameter
+from menu.popup import configureIP, featureOption,headPose, filterParameter, filterIDParameter
 
 # dir = os.path.basename(os.getcwd())
 

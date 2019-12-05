@@ -72,7 +72,7 @@ Use Laplacian Transform
 DeepGaze  
 [link: https://github.com/mpatacchiola/deepgaze/blob/master/examples/ex_cnn_head_pose_estimation_images/ex_cnn_head_pose_estimation_images.py]  
 
-# Age & Gender Estimator
+# Age, Gender & Emotion Estimator
 Use the pretrained caffe model for agenet and gendernet  
 [link: https://talhassner.github.io/home/publication/2015_CVPR]
 

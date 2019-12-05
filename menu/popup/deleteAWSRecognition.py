@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
+import logging as logger
+import aws.rekognition as aws
 
 ### not yet done
 class Popup(tk.messagebox):

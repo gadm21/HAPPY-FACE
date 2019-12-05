@@ -8,9 +8,9 @@ import os
 curPath = os.path.dirname(__file__)
 sys.path.insert(0, curPath)
 
-from face import Face
+from scroll.face import Face
 
-import imageList
+import scroll.imageList
 
 def resizeImage(sizeX,sizeY,img):
 	height,width,_ = img.shape
@@ -87,7 +87,7 @@ class VerticalScrolledFrame:
 			self.canvas.yview_scroll(1, "units" )
 
 	def popup(self,fid,faceObj):
-		popup = imageList.Popup(self.master,faceObj)
+		popup = scroll.imageList.Popup(self.master,faceObj)
 
 	def addFaceToImageList(self,fid,faceObj):
 		imgLabel = ttk.Button(self,image=faceObj['imgtk'],command=lambda:self.popup(fid,faceObj))

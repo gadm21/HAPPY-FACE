@@ -7,9 +7,9 @@ import os
 curPath = os.path.dirname(__file__)
 sys.path.insert(0, curPath)
 
-import align.detect_face
+import predict.align.detect_face
 
-import hopenet.hopenet as hopenet
+import predict.hopenet.hopenet as hopenet
 import torchvision
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -31,6 +31,7 @@ MODEL_MEAN_VALUES = (78.4263377603, 87.7689143744, 114.895847746)
 age_list=[[0, 2],[4, 6],[8, 12],[15, 20],[25, 32],[38, 43],[48, 53],[60, 100]]
 
 gender_list = ['M', 'F']
+emotion_list = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
 
 detectAngle = False 
 
@@ -51,7 +52,7 @@ class Predict:
 													# intra_op_parallelism_threads=NUM_THREADS,
 													log_device_placement=False))
 			with sess.as_default():
-				self.pnet, self.rnet, self.onet = align.detect_face.create_mtcnn(
+				self.pnet, self.rnet, self.onet = predict.align.detect_face.create_mtcnn(
 					sess, None)
 
 		self.detectionThread = False
@@ -63,6 +64,10 @@ class Predict:
 		self.genderNet = cv2.dnn.readNetFromCaffe(
 			curPath+"/models/gender/deploy.prototxt",
 			curPath+"/models/gender/gender_net.caffemodel")
+
+		self.emotionNet = cv2.dnn.readNetFromCaffe(
+			curPath + "/models/emotion/deploy.prototxt",
+			curPath + "/models/emotion/EmotiW_VGG_S.caffemodel")
 
 		if detectAngle:
 			self.cudaAvailable = torch.cuda.is_available()
@@ -122,7 +127,7 @@ class Predict:
 
 	def detectFace(self,img):
 		# bounding_boxes,points = align.detect_face.detect_face(img, minsize, self.pnet, self.rnet, self.onet, threshold, factor,use_thread=self.detectionThread)
-		bounding_boxes,points = align.detect_face.detect_face(img, minsize, self.pnet, self.rnet, self.onet, threshold, factor)
+		bounding_boxes,points = predict.align.detect_face.detect_face(img, minsize, self.pnet, self.rnet, self.onet, threshold, factor)
 		return bounding_boxes
 
 	def detectAngle(self,faceImg):
@@ -152,11 +157,13 @@ class Predict:
 		
 		(ageLow,ageHigh,ageScore) = self.detectAge(faceImg)
 		(gender,genderScore) = self.detectGender(faceImg)
+		(emotion,score) = self.detectEmotion(faceImg)
 
 		faceObj['ageLow'] = ageLow
 		faceObj['ageHigh'] = ageHigh
 		faceObj['gender'] = gender
 		faceObj['genderConfidence'] = genderScore
+		faceObj['emotion'] = emotion
 
 		return faceObj
 
@@ -176,7 +183,16 @@ class Predict:
 		index = gender_preds[0].argmax()
 		gender = gender_list[index]
 		score = gender_preds[0][index]
-		return gender,score		
+		return gender,score
+
+	def detectEmotion(self,faceImg):
+		blob = cv2.dnn.blobFromImage(faceImg, 1, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
+		self.emotionNet.setInput(blob)
+		emotion_preds = self.emotionNet.forward()
+		index = emotion_preds[0].argmax()
+		emotion = emotion_list[index]
+		score = emotion_preds[0][index]
+		return emotion,score
 
 if __name__ == '__main__':
 	predict = Predict()
@@ -186,8 +202,10 @@ if __name__ == '__main__':
 	res3 = predict.detectAngle(img)
 	res4 = predict.detectAge(img)
 	res5 = predict.detectGender(img)
+	res6 = predict.detectEmotion(img)
 	print(res)
 	print(res2)
 	print(res3)
 	print(res4)
 	print(res5)
+	print(res6)

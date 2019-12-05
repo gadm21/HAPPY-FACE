@@ -1,5 +1,10 @@
 import dlib
 import numpy as np
+from database import Database
+from config import Config
+import datetime
+
+exitedTime = None
 
 class Tracker:
 	def __init__(self,*args,**kwargs):
@@ -8,6 +13,8 @@ class Tracker:
 		self.trackingQuality = 5
 		self.videoFrameSize = np.empty((0,0,0))
 		self.outOfScreenThreshold = 0.4
+		self.conf = Config('config.ini')
+		self.db = Database(self.conf['host'], self.conf['user'], self.conf['password'], self.conf['database'])
 
 	def createTrack(self,imgDisplay,boundingBox,currentFaceID):
 
@@ -68,6 +75,7 @@ class Tracker:
 		return relativeOutScreen
 
 	def deleteTrack(self,imgDisplay):
+		global exitedTime
 		for fid in self.faceTrackers.keys():			
 			trackingQuality = self.faceTrackers[fid].update(imgDisplay)
 
@@ -80,10 +88,28 @@ class Tracker:
 			if relativeOutScreen > self.outOfScreenThreshold:
 				# print("Face Out of Screen")
 				self.fidsToDelete.append(fid)
+				# face exit time
+				exitedTime = str(datetime.datetime.now().strftime('%H:%M:%S'))
+
+				# store and update data to the Demographic table
+				try:
+					stmt = "INSERT INTO FaceExitTime (ExitedTime) VALUES (%s);"
+					update_table = "UPDATE Demographic inner join FaceExitTime ON (Demographic.ID = FaceExitTime.ID) SET Demographic.ExitedTime = FaceExitTime.ExitedTime;"
+					param = exitedTime
+					cursor = self.db.db.cursor()
+					cursor.execute(stmt, (param,))
+					cursor.execute(update_table)
+					cursor.close()
+					self.db.db.commit()
+				except Exception as e:
+					print("Error to write FaceExitTime -> ", e)
 
 		while len(self.fidsToDelete) > 0:
 			fid = self.fidsToDelete.pop()
 			self.faceTrackers.pop(fid,None)
+
+		return exitedTime # important to update table time
+
 
 	def getMatchId(self,imgDisplay,boundingBox):
 
