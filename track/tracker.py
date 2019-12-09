@@ -85,7 +85,7 @@ class Tracker:
 
 			relativeOutScreen = self.getRelativeOutScreen(fid)
 
-			if relativeOutScreen > self.outOfScreenThreshold:
+			if relativeOutScreen >= self.outOfScreenThreshold:
 				# print("Face Out of Screen")
 				self.fidsToDelete.append(fid)
 				# face exit time
@@ -99,6 +99,7 @@ class Tracker:
 					cursor = self.db.db.cursor()
 					cursor.execute(stmt, (param,))
 					cursor.execute(update_table)
+					print("DB exit time store succesfully at ", exitedTime)
 					cursor.close()
 					self.db.db.commit()
 				except Exception as e:
