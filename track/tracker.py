@@ -89,7 +89,7 @@ class Tracker:
 				# print("Face Out of Screen")
 				self.fidsToDelete.append(fid)
 				# face exit time
-				exitedTime = str(datetime.datetime.now().strftime('%H:%M:%S'))
+				exitedTime = str(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
 				# store and update data to the Demographic table
 				try:

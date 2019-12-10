@@ -4,7 +4,7 @@ USE face;
 
 CREATE TABLE FaceExitTime (
     ID int NOT NULL AUTO_INCREMENT,
-    ExitedTime TIME,
+    ExitedTime DATETIME,
     PRIMARY KEY (ID)
 );
 
@@ -15,8 +15,8 @@ CREATE TABLE Demographic (
     Emotion char(20),
     AgeLow int,
     AgeHigh int,
-    Date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ExitedTime TIME,
+    DetectedTime TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ExitedTime DATETIME,
     PRIMARY KEY (ID)
 );
 
